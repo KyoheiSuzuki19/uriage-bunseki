@@ -1,0 +1,1069 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="robots" content="noindex, nofollow" />
+  <title>売上分析 | ALTRY</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <style>
+    :root {
+      --bg: #f0f4f8;
+      --card: #fff;
+      --text: #1a2332;
+      --muted: #64748b;
+      --border: #e2e8f0;
+      --accent: #2563eb;
+      --up: #2563eb;
+      --down: #dc2626;
+      --c-kohoku: #059669;
+      --c-nogata: #d97706;
+      --c-minke: #7c3aed;
+      --c-yuzawa: #0891b2;
+      --c-total: #1d4ed8;
+      --c-koseikai: #be185d;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Segoe UI", "Hiragino Sans", "Yu Gothic UI", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.5;
+    }
+    .wrap { max-width: 1200px; margin: 0 auto; padding: 24px 20px 48px; }
+    h1 { font-size: 1.5rem; margin: 0 0 4px; font-weight: 700; }
+    .sub { color: var(--muted); font-size: 0.875rem; margin-bottom: 20px; }
+    .tabs {
+      display: flex; flex-wrap: wrap; gap: 0;
+      border-bottom: 2px solid var(--border); margin-bottom: 0;
+      position: sticky; top: 0; z-index: 30;
+      background: var(--bg);
+      padding-top: 8px;
+    }
+    .tab {
+      padding: 12px 20px; font-size: 0.9rem; background: none; border: none;
+      border-bottom: 3px solid transparent; margin-bottom: -2px;
+      cursor: pointer; color: var(--muted); font-weight: 500;
+    }
+    .tab.active { color: var(--text); font-weight: 700; border-bottom-color: var(--accent); }
+    .toolbar {
+      display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-end;
+      margin-bottom: 16px;
+      position: sticky; top: var(--tabs-h, 52px); z-index: 29;
+      background: var(--bg);
+      padding: 12px 0 12px;
+      border-bottom: 1px solid var(--border);
+    }
+    .compare-toggles {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px 16px;
+      align-items: center;
+      padding: 10px 14px;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      min-height: 44px;
+    }
+    .compare-toggles .toggle-title {
+      font-size: 0.78rem;
+      color: var(--muted);
+      font-weight: 600;
+      margin-right: 4px;
+    }
+    .compare-toggles label.compare-opt {
+      display: inline-flex;
+      flex-direction: row;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.9rem;
+      color: var(--text);
+      cursor: pointer;
+      user-select: none;
+    }
+    .compare-toggles input {
+      width: 16px;
+      height: 16px;
+      accent-color: #2563eb;
+    }
+    .swatch {
+      display: inline-block;
+      width: 12px;
+      height: 12px;
+      border-radius: 2px;
+    }
+    .swatch.cur { background: #2563eb; }
+    .swatch.prev { background: #f97316; }
+    .swatch.prev2 { background: #ec4899; }
+    .swatch.prev3 { background: #a855f7; }
+    .fiscal-summary {
+      flex: 1;
+      min-width: 280px;
+    }
+    .fiscal-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 10px 16px 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      width: 100%;
+    }
+    .fiscal-block {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .fiscal-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px 20px;
+      align-items: start;
+      margin-top: 8px;
+    }
+    .fiscal-row .fiscal-block {
+      min-width: 0;
+    }
+    .fiscal-summary .fiscal-label {
+      font-size: 0.78rem;
+      color: var(--muted);
+      font-weight: 600;
+    }
+    .fiscal-summary .fiscal-period {
+      font-size: 0.75rem;
+      color: var(--muted);
+    }
+    .fiscal-summary .fiscal-value {
+      font-size: 1.25rem;
+      font-weight: 700;
+      line-height: 1.3;
+      margin-top: 2px;
+    }
+    .fiscal-summary .fiscal-metric-lbl {
+      font-size: 0.7rem;
+      color: var(--muted);
+    }
+    .fiscal-summary .fiscal-metric-val {
+      font-size: 0.95rem;
+      font-weight: 700;
+    }
+    .fiscal-summary .fiscal-metric-val.up { color: var(--up); }
+    .fiscal-summary .fiscal-metric-val.down { color: var(--down); }
+    @media (max-width: 720px) {
+      .fiscal-row { flex-direction: column; }
+    }
+    label { display: flex; flex-direction: column; gap: 6px; font-size: 0.78rem; color: var(--muted); }
+    select {
+      font-size: 0.95rem; padding: 10px 14px; border: 1px solid var(--border);
+      border-radius: 8px; min-width: 220px; background: var(--card);
+    }
+    .kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 16px;
+      margin-bottom: 20px;
+    }
+    @media (max-width: 1200px) { .kpi-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+    @media (max-width: 800px) { .kpi-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+    @media (max-width: 560px) { .kpi-grid { grid-template-columns: 1fr; } }
+    .kpi-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 18px 18px 16px;
+      box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
+      border-top: 3px solid var(--accent);
+      min-height: 168px;
+      display: flex;
+      flex-direction: column;
+    }
+    .kpi-card.accent-kohoku { border-top-color: var(--c-kohoku); }
+    .kpi-card.accent-nogata { border-top-color: var(--c-nogata); }
+    .kpi-card.accent-minke { border-top-color: var(--c-minke); }
+    .kpi-card.accent-yuzawa { border-top-color: var(--c-yuzawa); }
+    .kpi-card.accent-total { border-top-color: var(--c-total); }
+    .kpi-card.accent-koseikai { border-top-color: var(--c-koseikai); }
+    .kpi-grid.kpi-simple {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+    .kpi-grid.kpi-compact {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+    .kpi-title {
+      font-size: 12px;
+      color: var(--muted);
+      font-weight: 600;
+      margin: 0 0 8px;
+      padding: 0;
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 6px;
+      white-space: nowrap;
+      line-height: 16px;
+      height: 16px;
+      flex-shrink: 0;
+    }
+    .kpi-title > span:first-child {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      min-width: 0;
+      flex: 1;
+      line-height: 16px;
+    }
+    .kpi-days {
+      font-weight: 600;
+      white-space: nowrap;
+      font-size: 12px;
+      line-height: 16px;
+      flex-shrink: 0;
+    }
+    .kpi-value {
+      font-size: 1.35rem;
+      font-weight: 700;
+      line-height: 1.2;
+      margin-bottom: auto;
+      padding-bottom: 8px;
+    }
+    .kpi-value.up { color: var(--up); }
+    .kpi-value.down { color: var(--down); }
+    .kpi-subline {
+      font-size: 0.75rem;
+      color: var(--muted);
+      margin-bottom: 10px;
+      min-height: 1.1em;
+    }
+    .kpi-subline.up { color: var(--up); font-weight: 600; }
+    .kpi-subline.down { color: var(--down); font-weight: 600; }
+    .kpi-subline.neutral { color: var(--text); font-weight: 600; }
+    .kpi-compare {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      border-top: 1px solid var(--border);
+      padding-top: 12px;
+    }
+    .kpi-sub { display: flex; flex-direction: column; gap: 2px; }
+    .kpi-sub-lbl { font-size: 0.65rem; color: var(--muted); white-space: nowrap; line-height: 1.3; }
+    .kpi-sub-val { font-size: 0.88rem; font-weight: 600; }
+    .kpi-sub-val.up { color: var(--up); }
+    .kpi-sub-val.down { color: var(--down); }
+    .kpi-sub-val.neutral { color: var(--text); }
+    .kpi-compare.single {
+      grid-template-columns: 1fr;
+      justify-items: start;
+      text-align: left;
+    }
+    .kpi-compare.single .kpi-sub { align-items: flex-start; }
+    .kpi-compare.single .kpi-sub-lbl { font-size: 0.68rem; }
+    .kpi-compare.single .kpi-sub-val { font-size: 1.05rem; }
+    .kpi-shortfall {
+      gap: 0;
+    }
+    .kpi-shortfall .kpi-value {
+      font-size: 1.6rem;
+      margin-bottom: 0;
+      padding-bottom: 10px;
+      flex: 1;
+      display: flex;
+      align-items: center;
+    }
+    .kpi-shortfall-day {
+      border-top: 1px solid var(--border);
+      padding-top: 12px;
+      margin-top: auto;
+      display: flex;
+      flex-direction: column;
+      flex: 1;
+    }
+    .kpi-shortfall-day .kpi-title {
+      margin-bottom: 8px;
+    }
+    .kpi-shortfall-day .kpi-value {
+      padding-bottom: 0;
+    }
+    .charts-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 16px;
+      margin-top: 8px;
+    }
+    .charts-grid .chart-card.full {
+      grid-column: 1 / -1;
+    }
+    @media (max-width: 900px) { .charts-grid { grid-template-columns: 1fr; } }
+    .chart-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px 16px 12px;
+      box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
+    }
+    .chart-card h2 {
+      font-size: 0.95rem;
+      margin: 0 0 4px;
+      font-weight: 700;
+    }
+    .chart-card .cap {
+      font-size: 0.75rem;
+      color: var(--muted);
+      margin-bottom: 10px;
+    }
+    .chart-box {
+      position: relative;
+      height: 280px;
+    }
+    .panel { display: none; }
+    .panel.active { display: block; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>売上分析</h1>
+    <div class="tabs" id="tabs"></div>
+    <div id="panels"></div>
+  </div>
+  <script>
+    const DATA = {"source":"★（入力）令和8年度売上分析 (総合計+各店舗).xlsx","generatedFrom":"★（入力）令和8年度売上分析 (総合計+各店舗).xlsx","clinicOrder":["湖北台診療所","のがたクリニック","みんなの血管外科池袋","湯沢クリニック","総合計"],"timelineKeys":[408,409,410,411,412,501,502,503,504,505,506,507,508,509,510,511,512,601,602,603,604,605,606,607,608,609,610,611,612,701,702,703,704,705,706,707,708,709,710,711,712,801,802,803,804,805,806,807,808,809],"timeline":["令和4年8月","令和4年9月","令和4年10月","令和4年11月","令和4年12月","令和5年1月","令和5年2月","令和5年3月","令和5年4月","令和5年5月","令和5年6月","令和5年7月","令和5年8月","令和5年9月","令和5年10月","令和5年11月","令和5年12月","令和6年1月","令和6年2月","令和6年3月","令和6年4月","令和6年5月","令和6年6月","令和6年7月","令和6年8月","令和6年9月","令和6年10月","令和6年11月","令和6年12月","令和7年1月","令和7年2月","令和7年3月","令和7年4月","令和7年5月","令和7年6月","令和7年7月","令和7年8月","令和7年9月","令和7年10月","令和7年11月","令和7年12月","令和8年1月","令和8年2月","令和8年3月","令和8年4月","令和8年5月","令和8年6月","令和8年7月","令和8年8月","令和8年9月"],"clinics":{"湖北台診療所":{"patientLabel":"保険来院患者数","unitPriceLabel":"保険来院患者単価","requiredTitle":"必要売上高","shortfallTitle":"不足来院患者数（保険のみ）","targetDayLabel":"必要売上高に達する１日あたりの来院患者数","selfPayParts":[{"key":"silgard","label":"シルガード","series":[{"key":508,"reiwaYear":5,"month":8,"label":"令和5年8月","rawLabel":"5年 8月","value":57310,"fiscalYear":"●令和5年度"},{"key":509,"reiwaYear":5,"month":9,"label":"令和5年9月","rawLabel":"5年 9月","value":200585,"fiscalYear":"●令和5年度"},{"key":510,"reiwaYear":5,"month":10,"label":"令和5年10月","rawLabel":"5年 10月","value":200585,"fiscalYear":"●令和5年度"},{"key":511,"reiwaYear":5,"month":11,"label":"令和5年11月","rawLabel":"5年 11月","value":200585,"fiscalYear":"●令和5年度"},{"key":512,"reiwaYear":5,"month":12,"label":"令和5年12月","rawLabel":"5年 12月","value":28655,"fiscalYear":"●令和5年度"},{"key":601,"reiwaYear":6,"month":1,"label":"令和6年1月","rawLabel":"6年 1月","value":257895,"fiscalYear":"●令和5年度"},{"key":602,"reiwaYear":6,"month":2,"label":"令和6年2月","rawLabel":"6年 2月","value":200585,"fiscalYear":"●令和5年度"},{"key":603,"reiwaYear":6,"month":3,"label":"令和6年3月","rawLabel":"6年 3月","value":315205,"fiscalYear":"●令和5年度"},{"key":604,"reiwaYear":6,"month":4,"label":"令和6年4月","rawLabel":"6年 4月","value":213888,"fiscalYear":"●令和5年度"},{"key":605,"reiwaYear":6,"month":5,"label":"令和6年5月","rawLabel":"6年 5月","value":213888,"fiscalYear":"●令和5年度"},{"key":606,"reiwaYear":6,"month":6,"label":"令和6年6月","rawLabel":"6年 6月","value":454512,"fiscalYear":"●令和5年度"},{"key":607,"reiwaYear":6,"month":7,"label":"令和6年7月","rawLabel":"6年 7月","value":267360,"fiscalYear":"●令和5年度"},{"key":608,"reiwaYear":6,"month":8,"label":"令和6年8月","rawLabel":"6年 8月","value":721872,"fiscalYear":"●令和6年度"},{"key":609,"reiwaYear":6,"month":9,"label":"令和6年9月","rawLabel":"6年 9月","value":1042704,"fiscalYear":"●令和6年度"},{"key":610,"reiwaYear":6,"month":10,"label":"令和6年10月","rawLabel":"6年 10月","value":240624,"fiscalYear":"●令和6年度"},{"key":611,"reiwaYear":6,"month":11,"label":"令和6年11月","rawLabel":"6年 11月","value":882288,"fiscalYear":"●令和6年度"},{"key":612,"reiwaYear":6,"month":12,"label":"令和6年12月","rawLabel":"6年 12月","value":534720,"fiscalYear":"●令和6年度"},{"key":701,"reiwaYear":7,"month":1,"label":"令和7年1月","rawLabel":"7年 1月","value":80208,"fiscalYear":"●令和6年度"},{"key":702,"reiwaYear":7,"month":2,"label":"令和7年2月","rawLabel":"7年 2月","value":534720,"fiscalYear":"●令和6年度"},{"key":703,"reiwaYear":7,"month":3,"label":"令和7年3月","rawLabel":"7年 3月","value":1630896,"fiscalYear":"●令和6年度"},{"key":704,"reiwaYear":7,"month":4,"label":"令和7年4月","rawLabel":"7年 4月","value":375228,"fiscalYear":"●令和6年度"},{"key":705,"reiwaYear":7,"month":5,"label":"令和7年5月","rawLabel":"7年 5月","value":455634,"fiscalYear":"●令和6年度"},{"key":706,"reiwaYear":7,"month":6,"label":"令和7年6月","rawLabel":"7年 6月","value":294822,"fiscalYear":"●令和6年度"},{"key":707,"reiwaYear":7,"month":7,"label":"令和7年7月","rawLabel":"7年 7月","value":107208,"fiscalYear":"●令和6年度"},{"key":708,"reiwaYear":7,"month":8,"label":"令和7年8月","rawLabel":"7年 8月","value":26802,"fiscalYear":"●令和7年度"},{"key":709,"reiwaYear":7,"month":9,"label":"令和7年9月","rawLabel":"7年 9月","value":509238,"fiscalYear":"●令和7年度"},{"key":710,"reiwaYear":7,"month":10,"label":"令和7年10月","rawLabel":"7年 10月","value":187614,"fiscalYear":"●令和7年度"},{"key":711,"reiwaYear":7,"month":11,"label":"令和7年11月","rawLabel":"7年 11月","value":107208,"fiscalYear":"●令和7年度"},{"key":712,"reiwaYear":7,"month":12,"label":"令和7年12月","rawLabel":"7年 12月","value":53604,"fiscalYear":"●令和7年度"},{"key":801,"reiwaYear":8,"month":1,"label":"令和8年1月","rawLabel":"8年 1月","value":53604,"fiscalYear":"●令和7年度"},{"key":803,"reiwaYear":8,"month":3,"label":"令和8年3月","rawLabel":"8年 3月","value":53604,"fiscalYear":"●令和7年度"},{"key":804,"reiwaYear":8,"month":4,"label":"令和8年4月","rawLabel":"8年 4月","value":80406,"fiscalYear":"●令和7年度"},{"key":805,"reiwaYear":8,"month":5,"label":"令和8年5月","rawLabel":"8年 5月","value":53604,"fiscalYear":"●令和7年度"},{"key":806,"reiwaYear":8,"month":6,"label":"令和8年6月","rawLabel":"8年 6月","value":53604,"fiscalYear":"●令和7年度"},{"key":807,"reiwaYear":8,"month":7,"label":"令和8年7月","rawLabel":"8年 7月","value":53604,"fiscalYear":"●令和7年度"},{"key":808,"reiwaYear":8,"month":8,"label":"令和8年8月","rawLabel":"8年 8月","value":107208,"fiscalYear":"●令和8年度"},{"key":809,"reiwaYear":8,"month":9,"label":"令和8年9月","rawLabel":"8年 9月","value":53604,"fiscalYear":"●令和8年度"}]},{"key":"checkup","label":"我孫子市健診","series":[{"key":408,"reiwaYear":4,"month":8,"label":"令和4年8月","rawLabel":"4年 8月","value":306733,"fiscalYear":"●令和4年度"},{"key":409,"reiwaYear":4,"month":9,"label":"令和4年9月","rawLabel":"4年 9月","value":411842,"fiscalYear":"●令和4年度"},{"key":410,"reiwaYear":4,"month":10,"label":"令和4年10月","rawLabel":"4年 10月","value":518420,"fiscalYear":"●令和4年度"},{"key":411,"reiwaYear":4,"month":11,"label":"令和4年11月","rawLabel":"4年 11月","value":249669,"fiscalYear":"●令和4年度"},{"key":412,"reiwaYear":4,"month":12,"label":"令和4年12月","rawLabel":"4年 12月","value":355549,"fiscalYear":"●令和4年度"},{"key":501,"reiwaYear":5,"month":1,"label":"令和5年1月","rawLabel":"5年 1月","value":195195,"fiscalYear":"●令和4年度"},{"key":502,"reiwaYear":5,"month":2,"label":"令和5年2月","rawLabel":"5年 2月","value":244889,"fiscalYear":"●令和4年度"},{"key":506,"reiwaYear":5,"month":6,"label":"令和5年6月","rawLabel":"5年 6月","value":98331,"fiscalYear":"●令和4年度"},{"key":507,"reiwaYear":5,"month":7,"label":"令和5年7月","rawLabel":"5年 7月","value":185222,"fiscalYear":"●令和4年度"},{"key":508,"reiwaYear":5,"month":8,"label":"令和5年8月","rawLabel":"5年 8月","value":148551,"fiscalYear":"●令和5年度"},{"key":509,"reiwaYear":5,"month":9,"label":"令和5年9月","rawLabel":"5年 9月","value":225958,"fiscalYear":"●令和5年度"},{"key":510,"reiwaYear":5,"month":10,"label":"令和5年10月","rawLabel":"5年 10月","value":350274,"fiscalYear":"●令和5年度"},{"key":511,"reiwaYear":5,"month":11,"label":"令和5年11月","rawLabel":"5年 11月","value":421592,"fiscalYear":"●令和5年度"},{"key":512,"reiwaYear":5,"month":12,"label":"令和5年12月","rawLabel":"5年 12月","value":285539,"fiscalYear":"●令和5年度"},{"key":601,"reiwaYear":6,"month":1,"label":"令和6年1月","rawLabel":"6年 1月","value":267543,"fiscalYear":"●令和5年度"},{"key":602,"reiwaYear":6,"month":2,"label":"令和6年2月","rawLabel":"6年 2月","value":331975,"fiscalYear":"●令和5年度"},{"key":606,"reiwaYear":6,"month":6,"label":"令和6年6月","rawLabel":"6年 6月","value":92061,"fiscalYear":"●令和5年度"},{"key":607,"reiwaYear":6,"month":7,"label":"令和6年7月","rawLabel":"6年 7月","value":185222,"fiscalYear":"●令和5年度"},{"key":608,"reiwaYear":6,"month":8,"label":"令和6年8月","rawLabel":"6年 8月","value":193644,"fiscalYear":"●令和6年度"},{"key":609,"reiwaYear":6,"month":9,"label":"令和6年9月","rawLabel":"6年 9月","value":263395,"fiscalYear":"●令和6年度"},{"key":610,"reiwaYear":6,"month":10,"label":"令和6年10月","rawLabel":"6年 10月","value":355652,"fiscalYear":"●令和6年度"},{"key":611,"reiwaYear":6,"month":11,"label":"令和6年11月","rawLabel":"6年 11月","value":357423,"fiscalYear":"●令和6年度"},{"key":612,"reiwaYear":6,"month":12,"label":"令和6年12月","rawLabel":"6年 12月","value":365354,"fiscalYear":"●令和6年度"},{"key":701,"reiwaYear":7,"month":1,"label":"令和7年1月","rawLabel":"7年 1月","value":300939,"fiscalYear":"●令和6年度"},{"key":702,"reiwaYear":7,"month":2,"label":"令和7年2月","rawLabel":"7年 2月","value":427273,"fiscalYear":"●令和6年度"},{"key":706,"reiwaYear":7,"month":6,"label":"令和7年6月","rawLabel":"7年 6月","value":227408,"fiscalYear":"●令和6年度"},{"key":707,"reiwaYear":7,"month":7,"label":"令和7年7月","rawLabel":"7年 7月","value":378166,"fiscalYear":"●令和6年度"},{"key":708,"reiwaYear":7,"month":8,"label":"令和7年8月","rawLabel":"7年 8月","value":439742,"fiscalYear":"●令和7年度"},{"key":709,"reiwaYear":7,"month":9,"label":"令和7年9月","rawLabel":"7年 9月","value":252135,"fiscalYear":"●令和7年度"},{"key":710,"reiwaYear":7,"month":10,"label":"令和7年10月","rawLabel":"7年 10月","value":447695,"fiscalYear":"●令和7年度"},{"key":711,"reiwaYear":7,"month":11,"label":"令和7年11月","rawLabel":"7年 11月","value":574741,"fiscalYear":"●令和7年度"},{"key":712,"reiwaYear":7,"month":12,"label":"令和7年12月","rawLabel":"7年 12月","value":330361,"fiscalYear":"●令和7年度"},{"key":801,"reiwaYear":8,"month":1,"label":"令和8年1月","rawLabel":"8年 1月","value":491506,"fiscalYear":"●令和7年度"},{"key":802,"reiwaYear":8,"month":2,"label":"令和8年2月","rawLabel":"8年 2月","value":337092,"fiscalYear":"●令和7年度"},{"key":806,"reiwaYear":8,"month":6,"label":"令和8年6月","rawLabel":"8年 6月","value":164726,"fiscalYear":"●令和7年度"},{"key":807,"reiwaYear":8,"month":7,"label":"令和8年7月","rawLabel":"8年 7月","value":198300,"fiscalYear":"●令和7年度"},{"key":808,"reiwaYear":8,"month":8,"label":"令和8年8月","rawLabel":"8年 8月","value":180952,"fiscalYear":"●令和8年度"},{"key":809,"reiwaYear":8,"month":9,"label":"令和8年9月","rawLabel":"8年 9月","value":307814,"fiscalYear":"●令和8年度"}]},{"key":"corporate","label":"企業健診","series":[{"key":408,"reiwaYear":4,"month":8,"label":"令和4年8月","rawLabel":"4年 8月","value":209000,"fiscalYear":"●令和4年度"},{"key":409,"reiwaYear":4,"month":9,"label":"令和4年9月","rawLabel":"4年 9月","value":613000,"fiscalYear":"●令和4年度"},{"key":410,"reiwaYear":4,"month":10,"label":"令和4年10月","rawLabel":"4年 10月","value":270000,"fiscalYear":"●令和4年度"},{"key":411,"reiwaYear":4,"month":11,"label":"令和4年11月","rawLabel":"4年 11月","value":453000,"fiscalYear":"●令和4年度"},{"key":412,"reiwaYear":4,"month":12,"label":"令和4年12月","rawLabel":"4年 12月","value":405000,"fiscalYear":"●令和4年度"},{"key":501,"reiwaYear":5,"month":1,"label":"令和5年1月","rawLabel":"5年 1月","value":430000,"fiscalYear":"●令和4年度"},{"key":502,"reiwaYear":5,"month":2,"label":"令和5年2月","rawLabel":"5年 2月","value":334000,"fiscalYear":"●令和4年度"},{"key":503,"reiwaYear":5,"month":3,"label":"令和5年3月","rawLabel":"5年 3月","value":701000,"fiscalYear":"●令和4年度"},{"key":504,"reiwaYear":5,"month":4,"label":"令和5年4月","rawLabel":"5年 4月","value":352000,"fiscalYear":"●令和4年度"},{"key":505,"reiwaYear":5,"month":5,"label":"令和5年5月","rawLabel":"5年 5月","value":515000,"fiscalYear":"●令和4年度"},{"key":506,"reiwaYear":5,"month":6,"label":"令和5年6月","rawLabel":"5年 6月","value":241500,"fiscalYear":"●令和4年度"},{"key":507,"reiwaYear":5,"month":7,"label":"令和5年7月","rawLabel":"5年 7月","value":200000,"fiscalYear":"●令和4年度"},{"key":508,"reiwaYear":5,"month":8,"label":"令和5年8月","rawLabel":"5年 8月","value":434300,"fiscalYear":"●令和5年度"},{"key":509,"reiwaYear":5,"month":9,"label":"令和5年9月","rawLabel":"5年 9月","value":365900,"fiscalYear":"●令和5年度"},{"key":510,"reiwaYear":5,"month":10,"label":"令和5年10月","rawLabel":"5年 10月","value":361000,"fiscalYear":"●令和5年度"},{"key":511,"reiwaYear":5,"month":11,"label":"令和5年11月","rawLabel":"5年 11月","value":531000,"fiscalYear":"●令和5年度"},{"key":512,"reiwaYear":5,"month":12,"label":"令和5年12月","rawLabel":"5年 12月","value":252000,"fiscalYear":"●令和5年度"},{"key":601,"reiwaYear":6,"month":1,"label":"令和6年1月","rawLabel":"6年 1月","value":137000,"fiscalYear":"●令和5年度"},{"key":602,"reiwaYear":6,"month":2,"label":"令和6年2月","rawLabel":"6年 2月","value":411000,"fiscalYear":"●令和5年度"},{"key":603,"reiwaYear":6,"month":3,"label":"令和6年3月","rawLabel":"6年 3月","value":327000,"fiscalYear":"●令和5年度"},{"key":604,"reiwaYear":6,"month":4,"label":"令和6年4月","rawLabel":"6年 4月","value":358000,"fiscalYear":"●令和5年度"},{"key":605,"reiwaYear":6,"month":5,"label":"令和6年5月","rawLabel":"6年 5月","value":254600,"fiscalYear":"●令和5年度"},{"key":606,"reiwaYear":6,"month":6,"label":"令和6年6月","rawLabel":"6年 6月","value":367800,"fiscalYear":"●令和5年度"},{"key":607,"reiwaYear":6,"month":7,"label":"令和6年7月","rawLabel":"6年 7月","value":305000,"fiscalYear":"●令和5年度"},{"key":608,"reiwaYear":6,"month":8,"label":"令和6年8月","rawLabel":"6年 8月","value":137200,"fiscalYear":"●令和6年度"},{"key":609,"reiwaYear":6,"month":9,"label":"令和6年9月","rawLabel":"6年 9月","value":84000,"fiscalYear":"●令和6年度"},{"key":610,"reiwaYear":6,"month":10,"label":"令和6年10月","rawLabel":"6年 10月","value":37000,"fiscalYear":"●令和6年度"},{"key":611,"reiwaYear":6,"month":11,"label":"令和6年11月","rawLabel":"6年 11月","value":9900,"fiscalYear":"●令和6年度"},{"key":612,"reiwaYear":6,"month":12,"label":"令和6年12月","rawLabel":"6年 12月","value":142400,"fiscalYear":"●令和6年度"},{"key":701,"reiwaYear":7,"month":1,"label":"令和7年1月","rawLabel":"7年 1月","value":56000,"fiscalYear":"●令和6年度"},{"key":705,"reiwaYear":7,"month":5,"label":"令和7年5月","rawLabel":"7年 5月","value":29700,"fiscalYear":"●令和6年度"},{"key":707,"reiwaYear":7,"month":7,"label":"令和7年7月","rawLabel":"7年 7月","value":55800,"fiscalYear":"●令和6年度"},{"key":709,"reiwaYear":7,"month":9,"label":"令和7年9月","rawLabel":"7年 9月","value":195700,"fiscalYear":"●令和7年度"},{"key":710,"reiwaYear":7,"month":10,"label":"令和7年10月","rawLabel":"7年 10月","value":69700,"fiscalYear":"●令和7年度"},{"key":711,"reiwaYear":7,"month":11,"label":"令和7年11月","rawLabel":"7年 11月","value":49500,"fiscalYear":"●令和7年度"},{"key":712,"reiwaYear":7,"month":12,"label":"令和7年12月","rawLabel":"7年 12月","value":9900,"fiscalYear":"●令和7年度"},{"key":801,"reiwaYear":8,"month":1,"label":"令和8年1月","rawLabel":"8年 1月","value":18000,"fiscalYear":"●令和7年度"}]},{"key":"flu","label":"インフルエンザ","series":[{"key":410,"reiwaYear":4,"month":10,"label":"令和4年10月","rawLabel":"4年 10月","value":556446,"fiscalYear":"●令和4年度"},{"key":411,"reiwaYear":4,"month":11,"label":"令和4年11月","rawLabel":"4年 11月","value":626294,"fiscalYear":"●令和4年度"},{"key":412,"reiwaYear":4,"month":12,"label":"令和4年12月","rawLabel":"4年 12月","value":260330,"fiscalYear":"●令和4年度"},{"key":501,"reiwaYear":5,"month":1,"label":"令和5年1月","rawLabel":"5年 1月","value":479326,"fiscalYear":"●令和4年度"},{"key":503,"reiwaYear":5,"month":3,"label":"令和5年3月","rawLabel":"5年 3月","value":8232,"fiscalYear":"●令和4年度"},{"key":510,"reiwaYear":5,"month":10,"label":"令和5年10月","rawLabel":"5年 10月","value":1775800,"fiscalYear":"●令和5年度"},{"key":511,"reiwaYear":5,"month":11,"label":"令和5年11月","rawLabel":"5年 11月","value":1555834,"fiscalYear":"●令和5年度"},{"key":512,"reiwaYear":5,"month":12,"label":"令和5年12月","rawLabel":"5年 12月","value":469574,"fiscalYear":"●令和5年度"},{"key":601,"reiwaYear":6,"month":1,"label":"令和6年1月","rawLabel":"6年 1月","value":31914,"fiscalYear":"●令和5年度"},{"key":610,"reiwaYear":6,"month":10,"label":"令和6年10月","rawLabel":"6年 10月","value":906440,"fiscalYear":"●令和6年度"},{"key":611,"reiwaYear":6,"month":11,"label":"令和6年11月","rawLabel":"6年 11月","value":1963380,"fiscalYear":"●令和6年度"},{"key":612,"reiwaYear":6,"month":12,"label":"令和6年12月","rawLabel":"6年 12月","value":872180,"fiscalYear":"●令和6年度"},{"key":701,"reiwaYear":7,"month":1,"label":"令和7年1月","rawLabel":"7年 1月","value":238960,"fiscalYear":"●令和6年度"},{"key":710,"reiwaYear":7,"month":10,"label":"令和7年10月","rawLabel":"7年 10月","value":1443534,"fiscalYear":"●令和7年度"},{"key":711,"reiwaYear":7,"month":11,"label":"令和7年11月","rawLabel":"7年 11月","value":1582440,"fiscalYear":"●令和7年度"},{"key":712,"reiwaYear":7,"month":12,"label":"令和7年12月","rawLabel":"7年 12月","value":659220,"fiscalYear":"●令和7年度"},{"key":801,"reiwaYear":8,"month":1,"label":"令和8年1月","rawLabel":"8年 1月","value":44078,"fiscalYear":"●令和7年度"}]},{"key":"other","label":"その他","series":[{"key":408,"reiwaYear":4,"month":8,"label":"令和4年8月","rawLabel":"4年 8月","value":482768,"fiscalYear":"●令和4年度"},{"key":409,"reiwaYear":4,"month":9,"label":"令和4年9月","rawLabel":"4年 9月","value":486591,"fiscalYear":"●令和4年度"},{"key":410,"reiwaYear":4,"month":10,"label":"令和4年10月","rawLabel":"4年 10月","value":723745,"fiscalYear":"●令和4年度"},{"key":411,"reiwaYear":4,"month":11,"label":"令和4年11月","rawLabel":"4年 11月","value":2043901,"fiscalYear":"●令和4年度"},{"key":412,"reiwaYear":4,"month":12,"label":"令和4年12月","rawLabel":"4年 12月","value":1078639,"fiscalYear":"●令和4年度"},{"key":501,"reiwaYear":5,"month":1,"label":"令和5年1月","rawLabel":"5年 1月","value":407147,"fiscalYear":"●令和4年度"},{"key":502,"reiwaYear":5,"month":2,"label":"令和5年2月","rawLabel":"5年 2月","value":426941,"fiscalYear":"●令和4年度"},{"key":503,"reiwaYear":5,"month":3,"label":"令和5年3月","rawLabel":"5年 3月","value":671684,"fiscalYear":"●令和4年度"},{"key":504,"reiwaYear":5,"month":4,"label":"令和5年4月","rawLabel":"5年 4月","value":373540,"fiscalYear":"●令和4年度"},{"key":505,"reiwaYear":5,"month":5,"label":"令和5年5月","rawLabel":"5年 5月","value":522170,"fiscalYear":"●令和4年度"},{"key":506,"reiwaYear":5,"month":6,"label":"令和5年6月","rawLabel":"5年 6月","value":591397,"fiscalYear":"●令和4年度"},{"key":507,"reiwaYear":5,"month":7,"label":"令和5年7月","rawLabel":"5年 7月","value":576779,"fiscalYear":"●令和4年度"},{"key":508,"reiwaYear":5,"month":8,"label":"令和5年8月","rawLabel":"5年 8月","value":446764,"fiscalYear":"●令和5年度"},{"key":509,"reiwaYear":5,"month":9,"label":"令和5年9月","rawLabel":"5年 9月","value":442596,"fiscalYear":"●令和5年度"},{"key":510,"reiwaYear":5,"month":10,"label":"令和5年10月","rawLabel":"5年 10月","value":472322,"fiscalYear":"●令和5年度"},{"key":511,"reiwaYear":5,"month":11,"label":"令和5年11月","rawLabel":"5年 11月","value":536744,"fiscalYear":"●令和5年度"},{"key":512,"reiwaYear":5,"month":12,"label":"令和5年12月","rawLabel":"5年 12月","value":202111,"fiscalYear":"●令和5年度"},{"key":601,"reiwaYear":6,"month":1,"label":"令和6年1月","rawLabel":"6年 1月","value":317829,"fiscalYear":"●令和5年度"},{"key":602,"reiwaYear":6,"month":2,"label":"令和6年2月","rawLabel":"6年 2月","value":333615,"fiscalYear":"●令和5年度"},{"key":603,"reiwaYear":6,"month":3,"label":"令和6年3月","rawLabel":"6年 3月","value":344143,"fiscalYear":"●令和5年度"},{"key":604,"reiwaYear":6,"month":4,"label":"令和6年4月","rawLabel":"6年 4月","value":369575,"fiscalYear":"●令和5年度"},{"key":605,"reiwaYear":6,"month":5,"label":"令和6年5月","rawLabel":"6年 5月","value":230913,"fiscalYear":"●令和5年度"},{"key":606,"reiwaYear":6,"month":6,"label":"令和6年6月","rawLabel":"6年 6月","value":138821,"fiscalYear":"●令和5年度"},{"key":607,"reiwaYear":6,"month":7,"label":"令和6年7月","rawLabel":"6年 7月","value":255337,"fiscalYear":"●令和5年度"},{"key":608,"reiwaYear":6,"month":8,"label":"令和6年8月","rawLabel":"6年 8月","value":167688,"fiscalYear":"●令和6年度"},{"key":609,"reiwaYear":6,"month":9,"label":"令和6年9月","rawLabel":"6年 9月","value":167177,"fiscalYear":"●令和6年度"},{"key":610,"reiwaYear":6,"month":10,"label":"令和6年10月","rawLabel":"6年 10月","value":276607,"fiscalYear":"●令和6年度"},{"key":611,"reiwaYear":6,"month":11,"label":"令和6年11月","rawLabel":"6年 11月","value":870112,"fiscalYear":"●令和6年度"},{"key":612,"reiwaYear":6,"month":12,"label":"令和6年12月","rawLabel":"6年 12月","value":1313331,"fiscalYear":"●令和6年度"},{"key":701,"reiwaYear":7,"month":1,"label":"令和7年1月","rawLabel":"7年 1月","value":64052,"fiscalYear":"●令和6年度"},{"key":702,"reiwaYear":7,"month":2,"label":"令和7年2月","rawLabel":"7年 2月","value":75091,"fiscalYear":"●令和6年度"},{"key":703,"reiwaYear":7,"month":3,"label":"令和7年3月","rawLabel":"7年 3月","value":92748,"fiscalYear":"●令和6年度"},{"key":704,"reiwaYear":7,"month":4,"label":"令和7年4月","rawLabel":"7年 4月","value":59697,"fiscalYear":"●令和6年度"},{"key":705,"reiwaYear":7,"month":5,"label":"令和7年5月","rawLabel":"7年 5月","value":51821,"fiscalYear":"●令和6年度"},{"key":706,"reiwaYear":7,"month":6,"label":"令和7年6月","rawLabel":"7年 6月","value":204366,"fiscalYear":"●令和6年度"},{"key":707,"reiwaYear":7,"month":7,"label":"令和7年7月","rawLabel":"7年 7月","value":35142,"fiscalYear":"●令和6年度"},{"key":708,"reiwaYear":7,"month":8,"label":"令和7年8月","rawLabel":"7年 8月","value":734202,"fiscalYear":"●令和7年度"},{"key":709,"reiwaYear":7,"month":9,"label":"令和7年9月","rawLabel":"7年 9月","value":916355,"fiscalYear":"●令和7年度"},{"key":710,"reiwaYear":7,"month":10,"label":"令和7年10月","rawLabel":"7年 10月","value":758452,"fiscalYear":"●令和7年度"},{"key":711,"reiwaYear":7,"month":11,"label":"令和7年11月","rawLabel":"7年 11月","value":1111610,"fiscalYear":"●令和7年度"},{"key":712,"reiwaYear":7,"month":12,"label":"令和7年12月","rawLabel":"7年 12月","value":1286336,"fiscalYear":"●令和7年度"},{"key":801,"reiwaYear":8,"month":1,"label":"令和8年1月","rawLabel":"8年 1月","value":555580,"fiscalYear":"●令和7年度"},{"key":802,"reiwaYear":8,"month":2,"label":"令和8年2月","rawLabel":"8年 2月","value":592953,"fiscalYear":"●令和7年度"},{"key":803,"reiwaYear":8,"month":3,"label":"令和8年3月","rawLabel":"8年 3月","value":540954,"fiscalYear":"●令和7年度"},{"key":804,"reiwaYear":8,"month":4,"label":"令和8年4月","rawLabel":"8年 4月","value":168999,"fiscalYear":"●令和7年度"},{"key":805,"reiwaYear":8,"month":5,"label":"令和8年5月","rawLabel":"8年 5月","value":218500,"fiscalYear":"●令和7年度"},{"key":806,"reiwaYear":8,"month":6,"label":"令和8年6月","rawLabel":"8年 6月","value":397229,"fiscalYear":"●令和7年度"},{"key":807,"reiwaYear":8,"month":7,"label":"令和8年7月","rawLabel":"8年 7月","value":680324,"fiscalYear":"●令和7年度"},{"key":808,"reiwaYear":8,"month":8,"label":"令和8年8月","rawLabel":"8年 8月","value":456564,"fiscalYear":"●令和8年度"},{"key":809,"reiwaYear":8,"month":9,"label":"令和8年9月","rawLabel":"8年 9月","value":966475,"fiscalYear":"●令和8年度"}]}],"months":[{"key":408,"label":"令和4年8月","sales":6141415,"insuranceSales":5142914,"patients":950,"dailyPatients":45,"days":21,"unitPrice":5413.5936842105266,"assessment":null,"requiredSales":null,"requiredInsuranceSales":null,"targetPatientsMonth":null,"targetPatientsDay":null,"salesVariance":null,"shortfallMonth":null,"shortfallDay":null},{"key":409,"label":"令和4年9月","sales":6542215,"insuranceSales":5030782,"patients":918,"dailyPatients":38,"days":24,"unitPrice":5480.1546840958608,"assessment":null,"requiredSales":null,"requiredInsuranceSales":null,"targetPatientsMonth":null,"targetPatientsDay":null,"salesVariance":null,"shortfallMonth":null,"shortfallDay":null},{"key":410,"label":"令和4年10月","sales":7592747,"insuranceSales":5524136,"patients":1042,"dailyPatients":42,"days":25,"unitPrice":5301.4740882917467,"assessment":null,"requiredSales":null,"requiredInsuranceSales":null,"targetPatientsMonth":null,"targetPatientsDay":null,"salesVariance":null,"shortfallMonth":null,"shortfallDay":null},{"key":411,"label":"令和4年11月","sales":8844191,"insuranceSales":5471327,"patients":1054,"dailyPatients":44,"days":24,"unitPrice":5191.0123339658448,"assessment":null,"requiredSales":null,"requiredInsuranceSales":null,"targetPatientsMonth":null,"targetPatientsDay":null,"salesVariance":null,"shortfallMonth":null,"shortfallDay":null},{"key":412,"label":"令和4年12月","sales":7603705,"insuranceSales":5504187,"patients":1049,"dailyPatients":39,"days":27,"unitPrice":5247.0800762631079,"assessment":null,"requiredSales":null,"requiredInsuranceSales":null,"targetPatientsMonth":null,"targetPatientsDay":null,"salesVariance":null,"shortfallMonth":null,"shortfallDay":null},{"key":501,"label":"令和5年1月","sales":6851536,"insuranceSales":5339868,"patients":1009,"dailyPatients":44,"days":23,"unitPrice":5292.2378592666009,"assessment":null,"requiredSales":null,"requiredInsuranceSales":null,"targetPatientsMonth":null,"targetPatientsDay":null,"salesVariance":null,"shortfallMonth":null,"shortfallDay":null},{"key":502,"label":"令和5年2月","sales":6531211,"insuranceSales":5525381,"patients":985,"dailyPatients":45,"days":22,"unitPrice":5609.52385786802,"assessment":null,"requiredSales":null,"requiredInsuranceSales":null,"targetPatientsMonth":null,"targetPatientsDay":null,"salesVariance":null,"shortfallMonth":null,"shortfallDay":null},{"key":503,"label":"令和5年3月","sales":8166636,"insuranceSales":6785720,"patients":1212,"dailyPatients":47,"days":26,"unitPrice":5598.7788778877884,"assessment":null,"requiredSales":null,"requiredInsuranceSales":null,"targetPatientsMonth":null,"targetPatientsDay":null,"salesVariance":null,"shortfallMonth":null,"shortfallDay":null},{"key":504,"label":"令和5年4月","sales":6624492,"insuranceSales":5898952,"patients":1074,"dailyPatients":45,"days":24,"unitPrice":5492.5065176908756,"assessment":null,"requiredSales":null,"requiredInsuranceSales":null,"targetPatientsMonth":null,"targetPatientsDay":null,"salesVariance":null,"shortfallMonth":null,"shortfallDay":null},{"key":505,"label":"令和5年5月","sales":6644203,"insuranceSales":5607033,"patients":1016,"dailyPatients":42,"days":24,"unitPrice":5518.733267716535,"assessment":null,"requiredSales":null,"requiredInsuranceSales":null,"targetPatientsMonth":null,"targetPatientsDay":null,"salesVariance":null,"shortfallMonth":null,"shortfallDay":null},{"key":506,"label":"令和5年6月","sales":6986613,"insuranceSales":6055385,"patients":1164,"dailyPatients":45,"days":26,"unitPrice":5202.2207903780072,"assessment":null,"requiredSales":null,"requiredInsuranceSales":null,"targetPatientsMonth":null,"targetPatientsDay":null,"salesVariance":null,"shortfallMonth":null,"shortfallDay":null},{"key":507,"label":"令和5年7月","sales":6774373,"insuranceSales":5812372,"patients":1136,"dailyPatients":45,"days":25,"unitPrice":5116.5246478873241,"assessment":null,"requiredSales":null,"requiredInsuranceSales":null,"targetPatientsMonth":null,"targetPatientsDay":null,"salesVariance":null,"shortfallMonth":null,"shortfallDay":null},{"key":508,"label":"令和5年8月","sales":6349892,"insuranceSales":5262967,"patients":1013,"dailyPatients":48,"days":21,"unitPrice":5195.4264560710762,"assessment":null,"requiredSales":null,"requiredInsuranceSales":null,"targetPatientsMonth":null,"targetPatientsDay":null,"salesVariance":null,"shortfallMonth":null,"shortfallDay":null},{"key":509,"label":"令和5年9月","sales":7068216,"insuranceSales":5833177,"patients":1097,"dailyPatients":50,"days":22,"unitPrice":5317.390154968095,"assessment":null,"requiredSales":null,"requiredInsuranceSales":null,"targetPatientsMonth":null,"targetPatientsDay":null,"salesVariance":null,"shortfallMonth":null,"shortfallDay":null},{"key":510,"label":"令和5年10月","sales":9810110,"insuranceSales":6650129,"patients":1184,"dailyPatients":47,"days":25,"unitPrice":5616.6630067567567,"assessment":null,"requiredSales":null,"requiredInsuranceSales":null,"targetPatientsMonth":null,"targetPatientsDay":null,"salesVariance":null,"shortfallMonth":null,"shortfallDay":null},{"key":511,"label":"令和5年11月","sales":9196526,"insuranceSales":5950771,"patients":1103,"dailyPatients":46,"days":24,"unitPrice":5395.0779691749776,"assessment":null,"requiredSales":null,"requiredInsuranceSales":null,"targetPatientsMonth":null,"targetPatientsDay":null,"salesVariance":null,"shortfallMonth":null,"shortfallDay":null},{"key":512,"label":"令和5年12月","sales":8073649,"insuranceSales":6835770,"patients":1162,"dailyPatients":48,"days":24,"unitPrice":5882.76247848537,"assessment":null,"requiredSales":null,"requiredInsuranceSales":null,"targetPatientsMonth":null,"targetPatientsDay":null,"salesVariance":null,"shortfallMonth":null,"shortfallDay":null},{"key":601,"label":"令和6年1月","sales":7634169,"insuranceSales":6621988,"patients":1115,"dailyPatients":51,"days":22,"unitPrice":5939.00269058296,"assessment":null,"requiredSales":null,"requiredInsuranceSales":null,"targetPatientsMonth":null,"targetPatientsDay":null,"salesVariance":null,"shortfallMonth":null,"shortfallDay":null},{"key":602,"label":"令和6年2月","sales":7479673,"insuranceSales":6202498,"patients":1102,"dailyPatients":48,"days":23,"unitPrice":5628.4010889292194,"assessment":null,"requiredSales":null,"requiredInsuranceSales":null,"targetPatientsMonth":null,"targetPatientsDay":null,"salesVariance":null,"shortfallMonth":null,"shortfallDay":null},{"key":603,"label":"令和6年3月","sales":7175321,"insuranceSales":6188973,"patients":1107,"dailyPatients":48,"days":23,"unitPrice":5590.7615176151758,"assessment":null,"requiredSales":null,"requiredInsuranceSales":null,"targetPatientsMonth":null,"targetPatientsDay":null,"salesVariance":null,"shortfallMonth":null,"shortfallDay":null},{"key":604,"label":"令和6年4月","sales":7502724,"insuranceSales":6561261,"patients":1158,"dailyPatients":46,"days":25,"unitPrice":5666.0284974093265,"assessment":null,"requiredSales":null,"requiredInsuranceSales":null,"targetPatientsMonth":null,"targetPatientsDay":null,"salesVariance":null,"shortfallMonth":null,"shortfallDay":null},{"key":605,"label":"令和6年5月","sales":6989494,"insuranceSales":6290093,"patients":1176,"dailyPatients":51,"days":23,"unitPrice":5348.7185374149658,"assessment":null,"requiredSales":null,"requiredInsuranceSales":null,"targetPatientsMonth":null,"targetPatientsDay":null,"salesVariance":null,"shortfallMonth":null,"shortfallDay":null},{"key":606,"label":"令和6年6月","sales":7119947,"insuranceSales":6066753,"patients":1132,"dailyPatients":45,"days":25,"unitPrice":5359.3224381625441,"assessment":null,"requiredSales":null,"requiredInsuranceSales":null,"targetPatientsMonth":null,"targetPatientsDay":null,"salesVariance":null,"shortfallMonth":null,"shortfallDay":null},{"key":607,"label":"令和6年7月","sales":7207785,"insuranceSales":6194866,"patients":1175,"dailyPatients":45,"days":26,"unitPrice":5272.2263829787234,"assessment":null,"requiredSales":null,"requiredInsuranceSales":null,"targetPatientsMonth":null,"targetPatientsDay":null,"salesVariance":null,"shortfallMonth":null,"shortfallDay":null},{"key":608,"label":"令和6年8月","sales":6685510,"insuranceSales":5465106,"patients":1053,"dailyPatients":50,"days":21,"unitPrice":5190.0341880341884,"assessment":null,"requiredSales":null,"requiredInsuranceSales":null,"targetPatientsMonth":null,"targetPatientsDay":null,"salesVariance":null,"shortfallMonth":null,"shortfallDay":null},{"key":609,"label":"令和6年9月","sales":7005728,"insuranceSales":5448452,"patients":1084,"dailyPatients":47,"days":23,"unitPrice":5026.2472324723249,"assessment":null,"requiredSales":null,"requiredInsuranceSales":null,"targetPatientsMonth":null,"targetPatientsDay":null,"salesVariance":null,"shortfallMonth":null,"shortfallDay":null},{"key":610,"label":"令和6年10月","sales":7822178,"insuranceSales":6005855,"patients":1180,"dailyPatients":45,"days":26,"unitPrice":5089.7076271186443,"assessment":null,"requiredSales":null,"requiredInsuranceSales":null,"targetPatientsMonth":null,"targetPatientsDay":null,"salesVariance":null,"shortfallMonth":null,"shortfallDay":null},{"key":611,"label":"令和6年11月","sales":9543149,"insuranceSales":5460046,"patients":1067,"dailyPatients":44,"days":24,"unitPrice":5117.1940018744144,"assessment":null,"requiredSales":null,"requiredInsuranceSales":null,"targetPatientsMonth":null,"targetPatientsDay":null,"salesVariance":null,"shortfallMonth":null,"shortfallDay":null},{"key":612,"label":"令和6年12月","sales":9506559,"insuranceSales":6278574,"patients":1142,"dailyPatients":44,"days":26,"unitPrice":5497.8756567425571,"assessment":null,"requiredSales":null,"requiredInsuranceSales":null,"targetPatientsMonth":null,"targetPatientsDay":null,"salesVariance":null,"shortfallMonth":null,"shortfallDay":null},{"key":701,"label":"令和7年1月","sales":6686722,"insuranceSales":5946563,"patients":1084,"dailyPatients":49,"days":22,"unitPrice":5485.7592250922507,"assessment":null,"requiredSales":null,"requiredInsuranceSales":null,"targetPatientsMonth":null,"targetPatientsDay":null,"salesVariance":null,"shortfallMonth":null,"shortfallDay":null},{"key":702,"label":"令和7年2月","sales":6756933,"insuranceSales":5719849,"patients":1070,"dailyPatients":49,"days":22,"unitPrice":5345.6532710280371,"assessment":null,"requiredSales":null,"requiredInsuranceSales":null,"targetPatientsMonth":null,"targetPatientsDay":null,"salesVariance":null,"shortfallMonth":null,"shortfallDay":null},{"key":703,"label":"令和7年3月","sales":7781179,"insuranceSales":6057535,"patients":1170,"dailyPatients":47,"days":25,"unitPrice":5177.3803418803418,"assessment":null,"requiredSales":null,"requiredInsuranceSales":null,"targetPatientsMonth":null,"targetPatientsDay":null,"salesVariance":null,"shortfallMonth":null,"shortfallDay":null},{"key":704,"label":"令和7年4月","sales":6422140,"insuranceSales":5987215,"patients":1151,"dailyPatients":46,"days":25,"unitPrice":5201.7506516072981,"assessment":null,"requiredSales":null,"requiredInsuranceSales":null,"targetPatientsMonth":null,"targetPatientsDay":null,"salesVariance":null,"shortfallMonth":null,"shortfallDay":null},{"key":705,"label":"令和7年5月","sales":6428693,"insuranceSales":5891538,"patients":1165,"dailyPatients":51,"days":23,"unitPrice":5057.1141630901284,"assessment":null,"requiredSales":null,"requiredInsuranceSales":null,"targetPatientsMonth":null,"targetPatientsDay":null,"salesVariance":null,"shortfallMonth":null,"shortfallDay":null},{"key":706,"label":"令和7年6月","sales":6679611,"insuranceSales":5953015,"patients":1120,"dailyPatients":45,"days":25,"unitPrice":5315.1919642857147,"assessment":null,"requiredSales":null,"requiredInsuranceSales":null,"targetPatientsMonth":null,"targetPatientsDay":null,"salesVariance":null,"shortfallMonth":null,"shortfallDay":null},{"key":707,"label":"令和7年7月","sales":6807426,"insuranceSales":6231110,"patients":1247,"dailyPatients":48,"days":26,"unitPrice":4996.8805132317566,"assessment":null,"requiredSales":null,"requiredInsuranceSales":null,"targetPatientsMonth":null,"targetPatientsDay":null,"salesVariance":null,"shortfallMonth":null,"shortfallDay":null},{"key":708,"label":"令和7年8月","sales":6747067,"insuranceSales":5546321,"patients":1048,"dailyPatients":52,"days":20,"unitPrice":5292.2910305343512,"assessment":null,"requiredSales":null,"requiredInsuranceSales":null,"targetPatientsMonth":null,"targetPatientsDay":null,"salesVariance":null,"shortfallMonth":null,"shortfallDay":null},{"key":709,"label":"令和7年9月","sales":7716386,"insuranceSales":5842958,"patients":1092,"dailyPatients":46,"days":24,"unitPrice":5350.6941391941391,"assessment":null,"requiredSales":null,"requiredInsuranceSales":null,"targetPatientsMonth":null,"targetPatientsDay":null,"salesVariance":null,"shortfallMonth":null,"shortfallDay":null},{"key":710,"label":"令和7年10月","sales":9088998,"insuranceSales":6182003,"patients":1197,"dailyPatients":46,"days":26,"unitPrice":5164.5806182121969,"assessment":null,"requiredSales":null,"requiredInsuranceSales":null,"targetPatientsMonth":null,"targetPatientsDay":null,"salesVariance":null,"shortfallMonth":null,"shortfallDay":null},{"key":711,"label":"令和7年11月","sales":9512558,"insuranceSales":6087059,"patients":1137,"dailyPatients":49,"days":23,"unitPrice":5353.6138962181176,"assessment":null,"requiredSales":null,"requiredInsuranceSales":null,"targetPatientsMonth":null,"targetPatientsDay":null,"salesVariance":null,"shortfallMonth":null,"shortfallDay":null},{"key":712,"label":"令和7年12月","sales":8749644,"insuranceSales":6410223,"patients":1137,"dailyPatients":47,"days":24,"unitPrice":5637.8390501319263,"assessment":null,"requiredSales":null,"requiredInsuranceSales":null,"targetPatientsMonth":null,"targetPatientsDay":null,"salesVariance":null,"shortfallMonth":null,"shortfallDay":null},{"key":801,"label":"令和8年1月","sales":7584564,"insuranceSales":6421796,"patients":1144,"dailyPatients":50,"days":23,"unitPrice":5613.4580419580416,"assessment":null,"requiredSales":null,"requiredInsuranceSales":null,"targetPatientsMonth":null,"targetPatientsDay":null,"salesVariance":null,"shortfallMonth":null,"shortfallDay":null},{"key":802,"label":"令和8年2月","sales":7045670,"insuranceSales":6115625,"patients":1084,"dailyPatients":49,"days":22,"unitPrice":5641.7204797047971,"assessment":null,"requiredSales":null,"requiredInsuranceSales":null,"targetPatientsMonth":null,"targetPatientsDay":null,"salesVariance":null,"shortfallMonth":null,"shortfallDay":null},{"key":803,"label":"令和8年3月","sales":6873906,"insuranceSales":6279348,"patients":1139,"dailyPatients":47,"days":24,"unitPrice":5513.0359964881472,"assessment":null,"requiredSales":null,"requiredInsuranceSales":null,"targetPatientsMonth":null,"targetPatientsDay":null,"salesVariance":null,"shortfallMonth":null,"shortfallDay":null},{"key":804,"label":"令和8年4月","sales":5878545,"insuranceSales":5629140,"patients":951,"dailyPatients":45,"days":21,"unitPrice":5919.1798107255518,"assessment":null,"requiredSales":null,"requiredInsuranceSales":null,"targetPatientsMonth":null,"targetPatientsDay":null,"salesVariance":null,"shortfallMonth":null,"shortfallDay":null},{"key":805,"label":"令和8年5月","sales":5693984,"insuranceSales":5421880,"patients":898,"dailyPatients":47,"days":19,"unitPrice":6037.7282850779511,"assessment":null,"requiredSales":null,"requiredInsuranceSales":null,"targetPatientsMonth":null,"targetPatientsDay":null,"salesVariance":null,"shortfallMonth":null,"shortfallDay":null},{"key":806,"label":"令和8年6月","sales":5956831,"insuranceSales":5341272,"patients":928,"dailyPatients":42,"days":22,"unitPrice":5755.6810344827591,"assessment":null,"requiredSales":null,"requiredInsuranceSales":null,"targetPatientsMonth":null,"targetPatientsDay":null,"salesVariance":null,"shortfallMonth":null,"shortfallDay":null},{"key":807,"label":"令和8年7月","sales":6617357,"insuranceSales":5685129,"patients":964,"dailyPatients":46,"days":21,"unitPrice":5897.4367219917012,"assessment":null,"requiredSales":null,"requiredInsuranceSales":null,"targetPatientsMonth":null,"targetPatientsDay":null,"salesVariance":null,"shortfallMonth":null,"shortfallDay":null},{"key":808,"label":"令和8年8月","sales":5922593,"insuranceSales":5177869,"patients":834,"dailyPatients":49,"days":17,"unitPrice":6208.4760191846526,"assessment":null,"requiredSales":null,"requiredInsuranceSales":null,"targetPatientsMonth":null,"targetPatientsDay":null,"salesVariance":null,"shortfallMonth":null,"shortfallDay":null},{"key":809,"label":"令和8年9月","sales":6862229,"insuranceSales":5534336,"patients":906,"dailyPatients":48,"days":19,"unitPrice":6108.53863134658,"assessment":null,"requiredSales":null,"requiredInsuranceSales":null,"targetPatientsMonth":null,"targetPatientsDay":null,"salesVariance":null,"shortfallMonth":null,"shortfallDay":null}],"name":"湖北台診療所","simpleMode":false,"hideRequiredChart":true,"hideShortfall":true,"insuranceChartTitle":"保険診療売上","insuranceSeriesLabel":"当期保険診療","insuranceChartCap":"青棒=当期保険金額合計 / オレンジ棒=前年同月","requiredInsuranceLabel":"保険だけの必要売上高","requiredTotalLabel":"必要売上高（保険＋自費）","salesTitle":"月次売上（保険＋自費）","shortfallDailyLabel":"不足来院患者数（保険のみ）"},"のがたクリニック":{"patientLabel":"保険来院患者数","unitPriceLabel":"保険来院患者単価","requiredTitle":"必要売上高","shortfallTitle":"不足来院患者数（保険のみ）","targetDayLabel":"必要売上高に達する１日あたりの来院患者数","selfPayParts":[{"key":"silgard","label":"シルガード","series":[{"key":604,"reiwaYear":6,"month":4,"label":"令和6年4月","rawLabel":"6年 4月","value":29981,"fiscalYear":"●令和5年度"},{"key":605,"reiwaYear":6,"month":5,"label":"令和6年5月","rawLabel":"6年 5月","value":119924,"fiscalYear":"●令和5年度"},{"key":606,"reiwaYear":6,"month":6,"label":"令和6年6月","rawLabel":"6年 6月","value":240552,"fiscalYear":"●令和5年度"},{"key":607,"reiwaYear":6,"month":7,"label":"令和6年7月","rawLabel":"6年 7月","value":180414,"fiscalYear":"●令和5年度"},{"key":608,"reiwaYear":6,"month":8,"label":"令和6年8月","rawLabel":"6年 8月","value":335934,"fiscalYear":"●令和6年度"},{"key":609,"reiwaYear":6,"month":9,"label":"令和6年9月","rawLabel":"6年 9月","value":962208,"fiscalYear":"●令和6年度"},{"key":610,"reiwaYear":6,"month":10,"label":"令和6年10月","rawLabel":"6年 10月","value":398113,"fiscalYear":"●令和6年度"},{"key":611,"reiwaYear":6,"month":11,"label":"令和6年11月","rawLabel":"6年 11月","value":739322,"fiscalYear":"●令和6年度"},{"key":612,"reiwaYear":6,"month":12,"label":"令和6年12月","rawLabel":"6年 12月","value":486367,"fiscalYear":"●令和6年度"},{"key":701,"reiwaYear":7,"month":1,"label":"令和7年1月","rawLabel":"7年 1月","value":120276,"fiscalYear":"●令和6年度"},{"key":702,"reiwaYear":7,"month":2,"label":"令和7年2月","rawLabel":"7年 2月","value":270621,"fiscalYear":"●令和6年度"},{"key":703,"reiwaYear":7,"month":3,"label":"令和7年3月","rawLabel":"7年 3月","value":1027609,"fiscalYear":"●令和6年度"},{"key":704,"reiwaYear":7,"month":4,"label":"令和7年4月","rawLabel":"7年 4月","value":150345,"fiscalYear":"●令和6年度"},{"key":705,"reiwaYear":7,"month":5,"label":"令和7年5月","rawLabel":"7年 5月","value":300690,"fiscalYear":"●令和6年度"},{"key":706,"reiwaYear":7,"month":6,"label":"令和7年6月","rawLabel":"7年 6月","value":90207,"fiscalYear":"●令和6年度"},{"key":707,"reiwaYear":7,"month":7,"label":"令和7年7月","rawLabel":"7年 7月","value":60138,"fiscalYear":"●令和6年度"},{"key":708,"reiwaYear":7,"month":8,"label":"令和7年8月","rawLabel":"7年 8月","value":90207,"fiscalYear":"●令和7年度"},{"key":709,"reiwaYear":7,"month":9,"label":"令和7年9月","rawLabel":"7年 9月","value":60138,"fiscalYear":"●令和7年度"},{"key":710,"reiwaYear":7,"month":10,"label":"令和7年10月","rawLabel":"7年 10月","value":210483,"fiscalYear":"●令和7年度"},{"key":711,"reiwaYear":7,"month":11,"label":"令和7年11月","rawLabel":"7年 11月","value":60318,"fiscalYear":"●令和7年度"},{"key":712,"reiwaYear":7,"month":12,"label":"令和7年12月","rawLabel":"7年 12月","value":60138,"fiscalYear":"●令和7年度"},{"key":805,"reiwaYear":8,"month":5,"label":"令和8年5月","rawLabel":"8年 5月","value":30069,"fiscalYear":"●令和7年度"}]},{"key":"checkup","label":"中野区区民健診","series":[{"key":505,"reiwaYear":5,"month":5,"label":"令和5年5月","rawLabel":"5年 5月","value":25676,"fiscalYear":"●令和4年度"},{"key":506,"reiwaYear":5,"month":6,"label":"令和5年6月","rawLabel":"5年 6月","value":347225,"fiscalYear":"●令和4年度"},{"key":507,"reiwaYear":5,"month":7,"label":"令和5年7月","rawLabel":"5年 7月","value":413746,"fiscalYear":"●令和4年度"},{"key":508,"reiwaYear":5,"month":8,"label":"令和5年8月","rawLabel":"5年 8月","value":468158,"fiscalYear":"●令和5年度"},{"key":509,"reiwaYear":5,"month":9,"label":"令和5年9月","rawLabel":"5年 9月","value":195961,"fiscalYear":"●令和5年度"},{"key":510,"reiwaYear":5,"month":10,"label":"令和5年10月","rawLabel":"5年 10月","value":420901,"fiscalYear":"●令和5年度"},{"key":511,"reiwaYear":5,"month":11,"label":"令和5年11月","rawLabel":"5年 11月","value":561849,"fiscalYear":"●令和5年度"},{"key":512,"reiwaYear":5,"month":12,"label":"令和5年12月","rawLabel":"5年 12月","value":625487,"fiscalYear":"●令和5年度"},{"key":601,"reiwaYear":6,"month":1,"label":"令和6年1月","rawLabel":"6年 1月","value":406245,"fiscalYear":"●令和5年度"},{"key":602,"reiwaYear":6,"month":2,"label":"令和6年2月","rawLabel":"6年 2月","value":1638049,"fiscalYear":"●令和5年度"},{"key":606,"reiwaYear":6,"month":6,"label":"令和6年6月","rawLabel":"6年 6月","value":159277,"fiscalYear":"●令和5年度"},{"key":607,"reiwaYear":6,"month":7,"label":"令和6年7月","rawLabel":"6年 7月","value":620469,"fiscalYear":"●令和5年度"},{"key":608,"reiwaYear":6,"month":8,"label":"令和6年8月","rawLabel":"6年 8月","value":581388,"fiscalYear":"●令和6年度"},{"key":609,"reiwaYear":6,"month":9,"label":"令和6年9月","rawLabel":"6年 9月","value":497017,"fiscalYear":"●令和6年度"},{"key":610,"reiwaYear":6,"month":10,"label":"令和6年10月","rawLabel":"6年 10月","value":489163,"fiscalYear":"●令和6年度"},{"key":611,"reiwaYear":6,"month":11,"label":"令和6年11月","rawLabel":"6年 11月","value":833420,"fiscalYear":"●令和6年度"},{"key":612,"reiwaYear":6,"month":12,"label":"令和6年12月","rawLabel":"6年 12月","value":758129,"fiscalYear":"●令和6年度"},{"key":701,"reiwaYear":7,"month":1,"label":"令和7年1月","rawLabel":"7年 1月","value":594512,"fiscalYear":"●令和6年度"},{"key":702,"reiwaYear":7,"month":2,"label":"令和7年2月","rawLabel":"7年 2月","value":1652249,"fiscalYear":"●令和6年度"},{"key":706,"reiwaYear":7,"month":6,"label":"令和7年6月","rawLabel":"7年 6月","value":184138,"fiscalYear":"●令和6年度"},{"key":707,"reiwaYear":7,"month":7,"label":"令和7年7月","rawLabel":"7年 7月","value":492962,"fiscalYear":"●令和6年度"},{"key":708,"reiwaYear":7,"month":8,"label":"令和7年8月","rawLabel":"7年 8月","value":484928,"fiscalYear":"●令和7年度"},{"key":709,"reiwaYear":7,"month":9,"label":"令和7年9月","rawLabel":"7年 9月","value":705677,"fiscalYear":"●令和7年度"},{"key":710,"reiwaYear":7,"month":10,"label":"令和7年10月","rawLabel":"7年 10月","value":629090,"fiscalYear":"●令和7年度"},{"key":711,"reiwaYear":7,"month":11,"label":"令和7年11月","rawLabel":"7年 11月","value":811849,"fiscalYear":"●令和7年度"},{"key":712,"reiwaYear":7,"month":12,"label":"令和7年12月","rawLabel":"7年 12月","value":654836,"fiscalYear":"●令和7年度"},{"key":801,"reiwaYear":8,"month":1,"label":"令和8年1月","rawLabel":"8年 1月","value":531121,"fiscalYear":"●令和7年度"},{"key":802,"reiwaYear":8,"month":2,"label":"令和8年2月","rawLabel":"8年 2月","value":1243028,"fiscalYear":"●令和7年度"},{"key":807,"reiwaYear":8,"month":7,"label":"令和8年7月","rawLabel":"8年 7月","value":733581,"fiscalYear":"●令和7年度"},{"key":808,"reiwaYear":8,"month":8,"label":"令和8年8月","rawLabel":"8年 8月","value":678196,"fiscalYear":"●令和8年度"},{"key":809,"reiwaYear":8,"month":9,"label":"令和8年9月","rawLabel":"8年 9月","value":603826,"fiscalYear":"●令和8年度"}]},{"key":"corporate","label":"企業健診","series":[{"key":504,"reiwaYear":5,"month":4,"label":"令和5年4月","rawLabel":"5年 4月","value":246400,"fiscalYear":"●令和4年度"},{"key":606,"reiwaYear":6,"month":6,"label":"令和6年6月","rawLabel":"6年 6月","value":14180,"fiscalYear":"●令和5年度"},{"key":607,"reiwaYear":6,"month":7,"label":"令和6年7月","rawLabel":"6年 7月","value":299200,"fiscalYear":"●令和5年度"},{"key":610,"reiwaYear":6,"month":10,"label":"令和6年10月","rawLabel":"6年 10月","value":92400,"fiscalYear":"●令和6年度"},{"key":705,"reiwaYear":7,"month":5,"label":"令和7年5月","rawLabel":"7年 5月","value":237600,"fiscalYear":"●令和6年度"},{"key":706,"reiwaYear":7,"month":6,"label":"令和7年6月","rawLabel":"7年 6月","value":237600,"fiscalYear":"●令和6年度"},{"key":707,"reiwaYear":7,"month":7,"label":"令和7年7月","rawLabel":"7年 7月","value":92400,"fiscalYear":"●令和6年度"},{"key":708,"reiwaYear":7,"month":8,"label":"令和7年8月","rawLabel":"7年 8月","value":112200,"fiscalYear":"●令和7年度"},{"key":806,"reiwaYear":8,"month":6,"label":"令和8年6月","rawLabel":"8年 6月","value":105600,"fiscalYear":"●令和7年度"},{"key":807,"reiwaYear":8,"month":7,"label":"令和8年7月","rawLabel":"8年 7月","value":363000,"fiscalYear":"●令和7年度"}]},{"key":"flu","label":"インフルエンザ","series":[{"key":510,"reiwaYear":5,"month":10,"label":"令和5年10月","rawLabel":"5年 10月","value":619125,"fiscalYear":"●令和5年度"},{"key":511,"reiwaYear":5,"month":11,"label":"令和5年11月","rawLabel":"5年 11月","value":398100,"fiscalYear":"●令和5年度"},{"key":512,"reiwaYear":5,"month":12,"label":"令和5年12月","rawLabel":"5年 12月","value":108625,"fiscalYear":"●令和5年度"},{"key":601,"reiwaYear":6,"month":1,"label":"令和6年1月","rawLabel":"6年 1月","value":14610,"fiscalYear":"●令和5年度"},{"key":610,"reiwaYear":6,"month":10,"label":"令和6年10月","rawLabel":"6年 10月","value":476165,"fiscalYear":"●令和6年度"},{"key":611,"reiwaYear":6,"month":11,"label":"令和6年11月","rawLabel":"6年 11月","value":929420,"fiscalYear":"●令和6年度"},{"key":612,"reiwaYear":6,"month":12,"label":"令和6年12月","rawLabel":"6年 12月","value":514727,"fiscalYear":"●令和6年度"},{"key":701,"reiwaYear":7,"month":1,"label":"令和7年1月","rawLabel":"7年 1月","value":103028,"fiscalYear":"●令和6年度"},{"key":710,"reiwaYear":7,"month":10,"label":"令和7年10月","rawLabel":"7年 10月","value":1802365,"fiscalYear":"●令和7年度"},{"key":711,"reiwaYear":7,"month":11,"label":"令和7年11月","rawLabel":"7年 11月","value":2242134,"fiscalYear":"●令和7年度"},{"key":712,"reiwaYear":7,"month":12,"label":"令和7年12月","rawLabel":"7年 12月","value":217384,"fiscalYear":"●令和7年度"},{"key":801,"reiwaYear":8,"month":1,"label":"令和8年1月","rawLabel":"8年 1月","value":57469,"fiscalYear":"●令和7年度"},{"key":802,"reiwaYear":8,"month":2,"label":"令和8年2月","rawLabel":"8年 2月","value":57469,"fiscalYear":"●令和7年度"}]},{"key":"trial","label":"治験","series":[{"key":606,"reiwaYear":6,"month":6,"label":"令和6年6月","rawLabel":"6年 6月","value":242880,"fiscalYear":"●令和5年度"},{"key":607,"reiwaYear":6,"month":7,"label":"令和6年7月","rawLabel":"6年 7月","value":693000,"fiscalYear":"●令和5年度"},{"key":608,"reiwaYear":6,"month":8,"label":"令和6年8月","rawLabel":"6年 8月","value":660000,"fiscalYear":"●令和6年度"},{"key":609,"reiwaYear":6,"month":9,"label":"令和6年9月","rawLabel":"6年 9月","value":132000,"fiscalYear":"●令和6年度"},{"key":610,"reiwaYear":6,"month":10,"label":"令和6年10月","rawLabel":"6年 10月","value":497200,"fiscalYear":"●令和6年度"},{"key":611,"reiwaYear":6,"month":11,"label":"令和6年11月","rawLabel":"6年 11月","value":132000,"fiscalYear":"●令和6年度"},{"key":612,"reiwaYear":6,"month":12,"label":"令和6年12月","rawLabel":"6年 12月","value":178200,"fiscalYear":"●令和6年度"},{"key":701,"reiwaYear":7,"month":1,"label":"令和7年1月","rawLabel":"7年 1月","value":178200,"fiscalYear":"●令和6年度"},{"key":702,"reiwaYear":7,"month":2,"label":"令和7年2月","rawLabel":"7年 2月","value":385000,"fiscalYear":"●令和6年度"},{"key":703,"reiwaYear":7,"month":3,"label":"令和7年3月","rawLabel":"7年 3月","value":377630,"fiscalYear":"●令和6年度"},{"key":704,"reiwaYear":7,"month":4,"label":"令和7年4月","rawLabel":"7年 4月","value":345829,"fiscalYear":"●令和6年度"},{"key":705,"reiwaYear":7,"month":5,"label":"令和7年5月","rawLabel":"7年 5月","value":165000,"fiscalYear":"●令和6年度"},{"key":706,"reiwaYear":7,"month":6,"label":"令和7年6月","rawLabel":"7年 6月","value":112200,"fiscalYear":"●令和6年度"},{"key":707,"reiwaYear":7,"month":7,"label":"令和7年7月","rawLabel":"7年 7月","value":242429,"fiscalYear":"●令和6年度"},{"key":708,"reiwaYear":7,"month":8,"label":"令和7年8月","rawLabel":"7年 8月","value":125829,"fiscalYear":"●令和7年度"},{"key":709,"reiwaYear":7,"month":9,"label":"令和7年9月","rawLabel":"7年 9月","value":231000,"fiscalYear":"●令和7年度"},{"key":710,"reiwaYear":7,"month":10,"label":"令和7年10月","rawLabel":"7年 10月","value":212300,"fiscalYear":"●令和7年度"},{"key":712,"reiwaYear":7,"month":12,"label":"令和7年12月","rawLabel":"7年 12月","value":111100,"fiscalYear":"●令和7年度"},{"key":801,"reiwaYear":8,"month":1,"label":"令和8年1月","rawLabel":"8年 1月","value":92400,"fiscalYear":"●令和7年度"},{"key":802,"reiwaYear":8,"month":2,"label":"令和8年2月","rawLabel":"8年 2月","value":92400,"fiscalYear":"●令和7年度"},{"key":803,"reiwaYear":8,"month":3,"label":"令和8年3月","rawLabel":"8年 3月","value":364100,"fiscalYear":"●令和7年度"},{"key":804,"reiwaYear":8,"month":4,"label":"令和8年4月","rawLabel":"8年 4月","value":86900,"fiscalYear":"●令和7年度"},{"key":806,"reiwaYear":8,"month":6,"label":"令和8年6月","rawLabel":"8年 6月","value":18700,"fiscalYear":"●令和7年度"},{"key":807,"reiwaYear":8,"month":7,"label":"令和8年7月","rawLabel":"8年 7月","value":101200,"fiscalYear":"●令和7年度"},{"key":809,"reiwaYear":8,"month":9,"label":"令和8年9月","rawLabel":"8年 9月","value":463430,"fiscalYear":"●令和8年度"}]},{"key":"other","label":"その他","series":[{"key":504,"reiwaYear":5,"month":4,"label":"令和5年4月","rawLabel":"5年 4月","value":312707,"fiscalYear":"●令和4年度"},{"key":505,"reiwaYear":5,"month":5,"label":"令和5年5月","rawLabel":"5年 5月","value":357838,"fiscalYear":"●令和4年度"},{"key":506,"reiwaYear":5,"month":6,"label":"令和5年6月","rawLabel":"5年 6月","value":535398,"fiscalYear":"●令和4年度"},{"key":507,"reiwaYear":5,"month":7,"label":"令和5年7月","rawLabel":"5年 7月","value":506358,"fiscalYear":"●令和4年度"},{"key":508,"reiwaYear":5,"month":8,"label":"令和5年8月","rawLabel":"5年 8月","value":331984,"fiscalYear":"●令和5年度"},{"key":509,"reiwaYear":5,"month":9,"label":"令和5年9月","rawLabel":"5年 9月","value":540250,"fiscalYear":"●令和5年度"},{"key":510,"reiwaYear":5,"month":10,"label":"令和5年10月","rawLabel":"5年 10月","value":527535,"fiscalYear":"●令和5年度"},{"key":511,"reiwaYear":5,"month":11,"label":"令和5年11月","rawLabel":"5年 11月","value":677631,"fiscalYear":"●令和5年度"},{"key":512,"reiwaYear":5,"month":12,"label":"令和5年12月","rawLabel":"5年 12月","value":526642,"fiscalYear":"●令和5年度"},{"key":601,"reiwaYear":6,"month":1,"label":"令和6年1月","rawLabel":"6年 1月","value":547624,"fiscalYear":"●令和5年度"},{"key":602,"reiwaYear":6,"month":2,"label":"令和6年2月","rawLabel":"6年 2月","value":769407,"fiscalYear":"●令和5年度"},{"key":603,"reiwaYear":6,"month":3,"label":"令和6年3月","rawLabel":"6年 3月","value":763257,"fiscalYear":"●令和5年度"},{"key":604,"reiwaYear":6,"month":4,"label":"令和6年4月","rawLabel":"6年 4月","value":301790,"fiscalYear":"●令和5年度"},{"key":605,"reiwaYear":6,"month":5,"label":"令和6年5月","rawLabel":"6年 5月","value":435308,"fiscalYear":"●令和5年度"},{"key":606,"reiwaYear":6,"month":6,"label":"令和6年6月","rawLabel":"6年 6月","value":421971,"fiscalYear":"●令和5年度"},{"key":607,"reiwaYear":6,"month":7,"label":"令和6年7月","rawLabel":"6年 7月","value":755994,"fiscalYear":"●令和5年度"},{"key":608,"reiwaYear":6,"month":8,"label":"令和6年8月","rawLabel":"6年 8月","value":225697,"fiscalYear":"●令和6年度"},{"key":609,"reiwaYear":6,"month":9,"label":"令和6年9月","rawLabel":"6年 9月","value":315731,"fiscalYear":"●令和6年度"},{"key":610,"reiwaYear":6,"month":10,"label":"令和6年10月","rawLabel":"6年 10月","value":1024114,"fiscalYear":"●令和6年度"},{"key":611,"reiwaYear":6,"month":11,"label":"令和6年11月","rawLabel":"6年 11月","value":828265,"fiscalYear":"●令和6年度"},{"key":612,"reiwaYear":6,"month":12,"label":"令和6年12月","rawLabel":"6年 12月","value":468454,"fiscalYear":"●令和6年度"},{"key":701,"reiwaYear":7,"month":1,"label":"令和7年1月","rawLabel":"7年 1月","value":499600,"fiscalYear":"●令和6年度"},{"key":702,"reiwaYear":7,"month":2,"label":"令和7年2月","rawLabel":"7年 2月","value":362163,"fiscalYear":"●令和6年度"},{"key":703,"reiwaYear":7,"month":3,"label":"令和7年3月","rawLabel":"7年 3月","value":308250,"fiscalYear":"●令和6年度"},{"key":704,"reiwaYear":7,"month":4,"label":"令和7年4月","rawLabel":"7年 4月","value":180164,"fiscalYear":"●令和6年度"},{"key":705,"reiwaYear":7,"month":5,"label":"令和7年5月","rawLabel":"7年 5月","value":108439,"fiscalYear":"●令和6年度"},{"key":706,"reiwaYear":7,"month":6,"label":"令和7年6月","rawLabel":"7年 6月","value":110211,"fiscalYear":"●令和6年度"},{"key":707,"reiwaYear":7,"month":7,"label":"令和7年7月","rawLabel":"7年 7月","value":316390,"fiscalYear":"●令和6年度"},{"key":708,"reiwaYear":7,"month":8,"label":"令和7年8月","rawLabel":"7年 8月","value":909668,"fiscalYear":"●令和7年度"},{"key":709,"reiwaYear":7,"month":9,"label":"令和7年9月","rawLabel":"7年 9月","value":973557,"fiscalYear":"●令和7年度"},{"key":710,"reiwaYear":7,"month":10,"label":"令和7年10月","rawLabel":"7年 10月","value":2366576,"fiscalYear":"●令和7年度"},{"key":711,"reiwaYear":7,"month":11,"label":"令和7年11月","rawLabel":"7年 11月","value":1863843,"fiscalYear":"●令和7年度"},{"key":712,"reiwaYear":7,"month":12,"label":"令和7年12月","rawLabel":"7年 12月","value":2163494,"fiscalYear":"●令和7年度"},{"key":801,"reiwaYear":8,"month":1,"label":"令和8年1月","rawLabel":"8年 1月","value":1447073,"fiscalYear":"●令和7年度"},{"key":802,"reiwaYear":8,"month":2,"label":"令和8年2月","rawLabel":"8年 2月","value":1098308,"fiscalYear":"●令和7年度"},{"key":803,"reiwaYear":8,"month":3,"label":"令和8年3月","rawLabel":"8年 3月","value":1266454,"fiscalYear":"●令和7年度"},{"key":804,"reiwaYear":8,"month":4,"label":"令和8年4月","rawLabel":"8年 4月","value":724847,"fiscalYear":"●令和7年度"},{"key":805,"reiwaYear":8,"month":5,"label":"令和8年5月","rawLabel":"8年 5月","value":883844,"fiscalYear":"●令和7年度"},{"key":806,"reiwaYear":8,"month":6,"label":"令和8年6月","rawLabel":"8年 6月","value":1065962,"fiscalYear":"●令和7年度"},{"key":807,"reiwaYear":8,"month":7,"label":"令和8年7月","rawLabel":"8年 7月","value":1132568,"fiscalYear":"●令和7年度"},{"key":808,"reiwaYear":8,"month":8,"label":"令和8年8月","rawLabel":"8年 8月","value":789564,"fiscalYear":"●令和8年度"},{"key":809,"reiwaYear":8,"month":9,"label":"令和8年9月","rawLabel":"8年 9月","value":1246394,"fiscalYear":"●令和8年度"}]}],"months":[{"key":504,"label":"令和5年4月","sales":10915619,"insuranceSales":10356512,"patients":899,"dailyPatients":37,"days":24,"unitPrice":11520.035595105674,"assessment":null,"requiredSales":null,"requiredInsuranceSales":null,"targetPatientsMonth":null,"targetPatientsDay":null,"salesVariance":null,"shortfallMonth":null,"shortfallDay":null},{"key":505,"label":"令和5年5月","sales":11696336,"insuranceSales":11312822,"patients":976,"dailyPatients":41,"days":24,"unitPrice":11591.006147540984,"assessment":null,"requiredSales":null,"requiredInsuranceSales":null,"targetPatientsMonth":null,"targetPatientsDay":null,"salesVariance":null,"shortfallMonth":null,"shortfallDay":null},{"key":506,"label":"令和5年6月","sales":12748836,"insuranceSales":11866213,"patients":1091,"dailyPatients":42,"days":26,"unitPrice":10876.455545371218,"assessment":null,"requiredSales":null,"requiredInsuranceSales":null,"targetPatientsMonth":null,"targetPatientsDay":null,"salesVariance":null,"shortfallMonth":null,"shortfallDay":null},{"key":507,"label":"令和5年7月","sales":13255449,"insuranceSales":12335345,"patients":1090,"dailyPatients":44,"days":25,"unitPrice":11316.830275229358,"assessment":null,"requiredSales":null,"requiredInsuranceSales":null,"targetPatientsMonth":null,"targetPatientsDay":null,"salesVariance":null,"shortfallMonth":null,"shortfallDay":null},{"key":508,"label":"令和5年8月","sales":12173706,"insuranceSales":11373564,"patients":920,"dailyPatients":44,"days":21,"unitPrice":12362.569565217391,"assessment":null,"requiredSales":null,"requiredInsuranceSales":null,"targetPatientsMonth":null,"targetPatientsDay":null,"salesVariance":null,"shortfallMonth":null,"shortfallDay":null},{"key":509,"label":"令和5年9月","sales":13641805,"insuranceSales":12905594,"patients":1066,"dailyPatients":46,"days":23,"unitPrice":12106.560975609756,"assessment":null,"requiredSales":null,"requiredInsuranceSales":null,"targetPatientsMonth":null,"targetPatientsDay":null,"salesVariance":null,"shortfallMonth":null,"shortfallDay":null},{"key":510,"label":"令和5年10月","sales":15293203,"insuranceSales":13725642,"patients":1175,"dailyPatients":47,"days":25,"unitPrice":11681.397446808511,"assessment":null,"requiredSales":null,"requiredInsuranceSales":null,"targetPatientsMonth":null,"targetPatientsDay":null,"salesVariance":null,"shortfallMonth":null,"shortfallDay":null},{"key":511,"label":"令和5年11月","sales":15488493,"insuranceSales":13850913,"patients":1158,"dailyPatients":50,"days":23,"unitPrice":11961.064766839378,"assessment":null,"requiredSales":null,"requiredInsuranceSales":null,"targetPatientsMonth":null,"targetPatientsDay":null,"salesVariance":null,"shortfallMonth":null,"shortfallDay":null},{"key":512,"label":"令和5年12月","sales":16899364,"insuranceSales":15638610,"patients":1357,"dailyPatients":54,"days":25,"unitPrice":11524.399410464259,"assessment":null,"requiredSales":null,"requiredInsuranceSales":null,"targetPatientsMonth":null,"targetPatientsDay":null,"salesVariance":null,"shortfallMonth":null,"shortfallDay":null},{"key":601,"label":"令和6年1月","sales":16137018,"insuranceSales":15168539,"patients":1295,"dailyPatients":59,"days":22,"unitPrice":11713.157528957528,"assessment":null,"requiredSales":null,"requiredInsuranceSales":null,"targetPatientsMonth":null,"targetPatientsDay":null,"salesVariance":null,"shortfallMonth":null,"shortfallDay":null},{"key":602,"label":"令和6年2月","sales":17118348,"insuranceSales":14710892,"patients":1266,"dailyPatients":55,"days":23,"unitPrice":11619.977883096366,"assessment":null,"requiredSales":null,"requiredInsuranceSales":null,"targetPatientsMonth":null,"targetPatientsDay":null,"salesVariance":null,"shortfallMonth":null,"shortfallDay":null},{"key":603,"label":"令和6年3月","sales":14980673,"insuranceSales":14217416,"patients":1241,"dailyPatients":50,"days":25,"unitPrice":11456.419016921836,"assessment":null,"requiredSales":null,"requiredInsuranceSales":null,"targetPatientsMonth":null,"targetPatientsDay":null,"salesVariance":null,"shortfallMonth":null,"shortfallDay":null},{"key":604,"label":"令和6年4月","sales":14810432,"insuranceSales":14478661,"patients":1262,"dailyPatients":50,"days":25,"unitPrice":11472.790015847861,"assessment":null,"requiredSales":null,"requiredInsuranceSales":null,"targetPatientsMonth":null,"targetPatientsDay":null,"salesVariance":null,"shortfallMonth":null,"shortfallDay":null},{"key":605,"label":"令和6年5月","sales":15235652,"insuranceSales":14680420,"patients":1271,"dailyPatients":55,"days":23,"unitPrice":11550.291109362706,"assessment":null,"requiredSales":null,"requiredInsuranceSales":null,"targetPatientsMonth":null,"targetPatientsDay":null,"salesVariance":null,"shortfallMonth":null,"shortfallDay":null},{"key":606,"label":"令和6年6月","sales":14035524,"insuranceSales":12956664,"patients":1234,"dailyPatients":54,"days":23,"unitPrice":10499.727714748784,"assessment":null,"requiredSales":null,"requiredInsuranceSales":null,"targetPatientsMonth":null,"targetPatientsDay":null,"salesVariance":null,"shortfallMonth":null,"shortfallDay":null},{"key":607,"label":"令和6年7月","sales":17520222,"insuranceSales":14971145,"patients":1399,"dailyPatients":54,"days":26,"unitPrice":10701.318799142244,"assessment":null,"requiredSales":null,"requiredInsuranceSales":null,"targetPatientsMonth":null,"targetPatientsDay":null,"salesVariance":null,"shortfallMonth":null,"shortfallDay":null},{"key":608,"label":"令和6年8月","sales":14550113,"insuranceSales":12747094,"patients":1146,"dailyPatients":55,"days":21,"unitPrice":11123.11867364747,"assessment":null,"requiredSales":null,"requiredInsuranceSales":null,"targetPatientsMonth":null,"targetPatientsDay":null,"salesVariance":null,"shortfallMonth":null,"shortfallDay":null},{"key":609,"label":"令和6年9月","sales":14944970,"insuranceSales":13038014,"patients":1212,"dailyPatients":53,"days":23,"unitPrice":10757.437293729374,"assessment":null,"requiredSales":null,"requiredInsuranceSales":null,"targetPatientsMonth":null,"targetPatientsDay":null,"salesVariance":null,"shortfallMonth":null,"shortfallDay":null},{"key":610,"label":"令和6年10月","sales":17979642,"insuranceSales":15002487,"patients":1408,"dailyPatients":54,"days":26,"unitPrice":10655.175426136364,"assessment":null,"requiredSales":null,"requiredInsuranceSales":null,"targetPatientsMonth":null,"targetPatientsDay":null,"salesVariance":null,"shortfallMonth":null,"shortfallDay":null},{"key":611,"label":"令和6年11月","sales":19583705,"insuranceSales":16121278,"patients":1447,"dailyPatients":60,"days":24,"unitPrice":11141.173462335868,"assessment":null,"requiredSales":null,"requiredInsuranceSales":null,"targetPatientsMonth":null,"targetPatientsDay":null,"salesVariance":null,"shortfallMonth":null,"shortfallDay":null},{"key":612,"label":"令和6年12月","sales":21299886,"insuranceSales":18894009,"patients":1768,"dailyPatients":77,"days":23,"unitPrice":10686.656674208145,"assessment":null,"requiredSales":null,"requiredInsuranceSales":null,"targetPatientsMonth":null,"targetPatientsDay":null,"salesVariance":null,"shortfallMonth":null,"shortfallDay":null},{"key":701,"label":"令和7年1月","sales":17972091,"insuranceSales":16476475,"patients":1560,"dailyPatients":68,"days":23,"unitPrice":10561.842948717949,"assessment":null,"requiredSales":null,"requiredInsuranceSales":null,"targetPatientsMonth":null,"targetPatientsDay":null,"salesVariance":null,"shortfallMonth":null,"shortfallDay":null},{"key":702,"label":"令和7年2月","sales":17479906,"insuranceSales":14809873,"patients":1338,"dailyPatients":61,"days":22,"unitPrice":11068.6644245142,"assessment":null,"requiredSales":null,"requiredInsuranceSales":null,"targetPatientsMonth":null,"targetPatientsDay":null,"salesVariance":null,"shortfallMonth":null,"shortfallDay":null},{"key":703,"label":"令和7年3月","sales":18241212,"insuranceSales":16527723,"patients":1521,"dailyPatients":61,"days":25,"unitPrice":10866.353057199211,"assessment":null,"requiredSales":null,"requiredInsuranceSales":null,"targetPatientsMonth":null,"targetPatientsDay":null,"salesVariance":null,"shortfallMonth":null,"shortfallDay":null},{"key":704,"label":"令和7年4月","sales":15527708,"insuranceSales":14851370,"patients":1371,"dailyPatients":55,"days":25,"unitPrice":10832.509117432532,"assessment":null,"requiredSales":null,"requiredInsuranceSales":null,"targetPatientsMonth":null,"targetPatientsDay":null,"salesVariance":null,"shortfallMonth":null,"shortfallDay":null},{"key":705,"label":"令和7年5月","sales":16730991,"insuranceSales":15919262,"patients":1345,"dailyPatients":56,"days":24,"unitPrice":11835.88252788104,"assessment":null,"requiredSales":null,"requiredInsuranceSales":null,"targetPatientsMonth":null,"targetPatientsDay":null,"salesVariance":null,"shortfallMonth":null,"shortfallDay":null},{"key":706,"label":"令和7年6月","sales":16610535,"insuranceSales":15876179,"patients":1432,"dailyPatients":57,"days":25,"unitPrice":11086.71717877095,"assessment":null,"requiredSales":null,"requiredInsuranceSales":null,"targetPatientsMonth":null,"targetPatientsDay":null,"salesVariance":null,"shortfallMonth":null,"shortfallDay":null},{"key":707,"label":"令和7年7月","sales":19029139,"insuranceSales":17824820,"patients":1585,"dailyPatients":61,"days":26,"unitPrice":11245.943217665616,"assessment":null,"requiredSales":null,"requiredInsuranceSales":null,"targetPatientsMonth":null,"targetPatientsDay":null,"salesVariance":null,"shortfallMonth":null,"shortfallDay":null},{"key":708,"label":"令和7年8月","sales":18577272,"insuranceSales":16854440,"patients":1449,"dailyPatients":58,"days":25,"unitPrice":11631.773636991029,"assessment":null,"requiredSales":null,"requiredInsuranceSales":null,"targetPatientsMonth":null,"targetPatientsDay":null,"salesVariance":null,"shortfallMonth":null,"shortfallDay":null},{"key":709,"label":"令和7年9月","sales":19223969,"insuranceSales":17253597,"patients":1485,"dailyPatients":65,"days":23,"unitPrice":11618.583838383838,"assessment":null,"requiredSales":null,"requiredInsuranceSales":null,"targetPatientsMonth":null,"targetPatientsDay":null,"salesVariance":null,"shortfallMonth":null,"shortfallDay":null},{"key":710,"label":"令和7年10月","sales":23274564,"insuranceSales":18053750,"patients":1571,"dailyPatients":60,"days":26,"unitPrice":11491.884150222788,"assessment":null,"requiredSales":null,"requiredInsuranceSales":null,"targetPatientsMonth":null,"targetPatientsDay":null,"salesVariance":null,"shortfallMonth":null,"shortfallDay":null},{"key":711,"label":"令和7年11月","sales":24707660,"insuranceSales":19729516,"patients":1708,"dailyPatients":74,"days":23,"unitPrice":11551.23887587822,"assessment":null,"requiredSales":null,"requiredInsuranceSales":null,"targetPatientsMonth":null,"targetPatientsDay":null,"salesVariance":null,"shortfallMonth":null,"shortfallDay":null},{"key":712,"label":"令和7年12月","sales":22017196,"insuranceSales":18810244,"patients":1611,"dailyPatients":67,"days":24,"unitPrice":11676.129112352575,"assessment":null,"requiredSales":null,"requiredInsuranceSales":null,"targetPatientsMonth":null,"targetPatientsDay":null,"salesVariance":null,"shortfallMonth":null,"shortfallDay":null},{"key":801,"label":"令和8年1月","sales":21313048,"insuranceSales":19184985,"patients":1653,"dailyPatients":72,"days":23,"unitPrice":11606.161524500907,"assessment":null,"requiredSales":null,"requiredInsuranceSales":null,"targetPatientsMonth":null,"targetPatientsDay":null,"salesVariance":null,"shortfallMonth":null,"shortfallDay":null},{"key":802,"label":"令和8年2月","sales":21844021,"insuranceSales":19352816,"patients":1717,"dailyPatients":78,"days":22,"unitPrice":11271.296447291788,"assessment":null,"requiredSales":null,"requiredInsuranceSales":null,"targetPatientsMonth":null,"targetPatientsDay":null,"salesVariance":null,"shortfallMonth":null,"shortfallDay":null},{"key":803,"label":"令和8年3月","sales":19886194,"insuranceSales":18255640,"patients":1540,"dailyPatients":62,"days":25,"unitPrice":11854.311688311689,"assessment":null,"requiredSales":null,"requiredInsuranceSales":null,"targetPatientsMonth":null,"targetPatientsDay":null,"salesVariance":null,"shortfallMonth":null,"shortfallDay":null},{"key":804,"label":"令和8年4月","sales":17915524,"insuranceSales":17103777,"patients":1510,"dailyPatients":60,"days":25,"unitPrice":11327.00463576159,"assessment":null,"requiredSales":null,"requiredInsuranceSales":null,"targetPatientsMonth":null,"targetPatientsDay":null,"salesVariance":null,"shortfallMonth":null,"shortfallDay":null},{"key":805,"label":"令和8年5月","sales":17685676,"insuranceSales":16771763,"patients":1403,"dailyPatients":61,"days":23,"unitPrice":11954.214540270848,"assessment":null,"requiredSales":null,"requiredInsuranceSales":null,"targetPatientsMonth":null,"targetPatientsDay":null,"salesVariance":null,"shortfallMonth":null,"shortfallDay":null},{"key":806,"label":"令和8年6月","sales":17494805,"insuranceSales":16304543,"patients":1439,"dailyPatients":55,"days":26,"unitPrice":11330.467685892982,"assessment":null,"requiredSales":null,"requiredInsuranceSales":null,"targetPatientsMonth":null,"targetPatientsDay":null,"salesVariance":null,"shortfallMonth":null,"shortfallDay":null},{"key":807,"label":"令和8年7月","sales":21401223,"insuranceSales":19070874,"patients":1598,"dailyPatients":61,"days":26,"unitPrice":11934.214017521903,"assessment":null,"requiredSales":null,"requiredInsuranceSales":null,"targetPatientsMonth":null,"targetPatientsDay":null,"salesVariance":null,"shortfallMonth":null,"shortfallDay":null},{"key":808,"label":"令和8年8月","sales":19256346,"insuranceSales":17788586,"patients":1520,"dailyPatients":61,"days":25,"unitPrice":11703.017105263158,"assessment":null,"requiredSales":null,"requiredInsuranceSales":null,"targetPatientsMonth":null,"targetPatientsDay":null,"salesVariance":null,"shortfallMonth":null,"shortfallDay":null},{"key":809,"label":"令和8年9月","sales":22184586,"insuranceSales":19870936,"patients":1668,"dailyPatients":73,"days":23,"unitPrice":11913.03117506,"assessment":null,"requiredSales":null,"requiredInsuranceSales":null,"targetPatientsMonth":null,"targetPatientsDay":null,"salesVariance":null,"shortfallMonth":null,"shortfallDay":null}],"name":"のがたクリニック","simpleMode":false,"hideRequiredChart":true,"hideShortfall":true,"insuranceChartTitle":"保険診療売上","insuranceSeriesLabel":"当期保険診療","insuranceChartCap":"青棒=当期保険金額合計 / オレンジ棒=前年同月","requiredInsuranceLabel":"保険だけの必要売上高","requiredTotalLabel":"必要売上高（保険＋自費）","salesTitle":"月次売上（保険＋自費）","shortfallDailyLabel":"不足来院患者数（保険のみ）"},"みんなの血管外科池袋":{"patientLabel":"OPE患者数","unitPriceLabel":"OPE患者単価","requiredTitle":"必要売上高","shortfallTitle":"不足OPE患者数（OPEのみ）","targetDayLabel":"必要売上高に達する１日あたりのOPE来院患者数","selfPayParts":[{"key":"opeOther","label":"OPE以外の売上","series":[{"key":605,"reiwaYear":6,"month":5,"label":"令和6年5月","rawLabel":"6年 5月","value":590860,"fiscalYear":"●令和5年度"},{"key":606,"reiwaYear":6,"month":6,"label":"令和6年6月","rawLabel":"6年 6月","value":1320840,"fiscalYear":"●令和5年度"},{"key":607,"reiwaYear":6,"month":7,"label":"令和6年7月","rawLabel":"6年 7月","value":1208400,"fiscalYear":"●令和5年度"},{"key":608,"reiwaYear":6,"month":8,"label":"令和6年8月","rawLabel":"6年 8月","value":1713431,"fiscalYear":"●令和6年度"},{"key":609,"reiwaYear":6,"month":9,"label":"令和6年9月","rawLabel":"6年 9月","value":2873530,"fiscalYear":"●令和6年度"},{"key":610,"reiwaYear":6,"month":10,"label":"令和6年10月","rawLabel":"6年 10月","value":1784340,"fiscalYear":"●令和6年度"},{"key":611,"reiwaYear":6,"month":11,"label":"令和6年11月","rawLabel":"6年 11月","value":2489890,"fiscalYear":"●令和6年度"},{"key":612,"reiwaYear":6,"month":12,"label":"令和6年12月","rawLabel":"6年 12月","value":1865900,"fiscalYear":"●令和6年度"},{"key":701,"reiwaYear":7,"month":1,"label":"令和7年1月","rawLabel":"7年 1月","value":1065100,"fiscalYear":"●令和6年度"},{"key":702,"reiwaYear":7,"month":2,"label":"令和7年2月","rawLabel":"7年 2月","value":1737700,"fiscalYear":"●令和6年度"},{"key":703,"reiwaYear":7,"month":3,"label":"令和7年3月","rawLabel":"7年 3月","value":1319140,"fiscalYear":"●令和6年度"},{"key":704,"reiwaYear":7,"month":4,"label":"令和7年4月","rawLabel":"7年 4月","value":2666270,"fiscalYear":"●令和6年度"},{"key":705,"reiwaYear":7,"month":5,"label":"令和7年5月","rawLabel":"7年 5月","value":1397750,"fiscalYear":"●令和6年度"},{"key":706,"reiwaYear":7,"month":6,"label":"令和7年6月","rawLabel":"7年 6月","value":2350980,"fiscalYear":"●令和6年度"},{"key":707,"reiwaYear":7,"month":7,"label":"令和7年7月","rawLabel":"7年 7月","value":601307,"fiscalYear":"●令和6年度"},{"key":708,"reiwaYear":7,"month":8,"label":"令和7年8月","rawLabel":"7年 8月","value":1839010,"fiscalYear":"●令和7年度"},{"key":709,"reiwaYear":7,"month":9,"label":"令和7年9月","rawLabel":"7年 9月","value":2393870,"fiscalYear":"●令和7年度"},{"key":710,"reiwaYear":7,"month":10,"label":"令和7年10月","rawLabel":"7年 10月","value":3476500,"fiscalYear":"●令和7年度"},{"key":711,"reiwaYear":7,"month":11,"label":"令和7年11月","rawLabel":"7年 11月","value":1916920,"fiscalYear":"●令和7年度"},{"key":712,"reiwaYear":7,"month":12,"label":"令和7年12月","rawLabel":"7年 12月","value":2478270,"fiscalYear":"●令和7年度"},{"key":801,"reiwaYear":8,"month":1,"label":"令和8年1月","rawLabel":"8年 1月","value":2999530,"fiscalYear":"●令和7年度"},{"key":802,"reiwaYear":8,"month":2,"label":"令和8年2月","rawLabel":"8年 2月","value":2756640,"fiscalYear":"●令和7年度"},{"key":803,"reiwaYear":8,"month":3,"label":"令和8年3月","rawLabel":"8年 3月","value":2692790,"fiscalYear":"●令和7年度"},{"key":804,"reiwaYear":8,"month":4,"label":"令和8年4月","rawLabel":"8年 4月","value":1795430,"fiscalYear":"●令和7年度"},{"key":805,"reiwaYear":8,"month":5,"label":"令和8年5月","rawLabel":"8年 5月","value":3649760,"fiscalYear":"●令和7年度"},{"key":806,"reiwaYear":8,"month":6,"label":"令和8年6月","rawLabel":"8年 6月","value":3415952,"fiscalYear":"●令和7年度"},{"key":807,"reiwaYear":8,"month":7,"label":"令和8年7月","rawLabel":"8年 7月","value":2763025,"fiscalYear":"●令和7年度"},{"key":808,"reiwaYear":8,"month":8,"label":"令和8年8月","rawLabel":"8年 8月","value":2291900,"fiscalYear":"●令和8年度"},{"key":809,"reiwaYear":8,"month":9,"label":"令和8年9月","rawLabel":"8年 9月","value":674874,"fiscalYear":"●令和8年度"}]}],"months":[{"key":605,"label":"令和6年5月","sales":14713730,"insuranceSales":14122870,"patients":67,"dailyPatients":3,"days":25,"unitPrice":210789.10447761195,"assessment":null,"requiredSales":null,"requiredInsuranceSales":null,"targetPatientsMonth":null,"targetPatientsDay":null,"salesVariance":null,"shortfallMonth":null,"shortfallDay":null},{"key":606,"label":"令和6年6月","sales":13559360,"insuranceSales":12238520,"patients":60,"dailyPatients":2,"days":27,"unitPrice":203975.33333333334,"assessment":null,"requiredSales":null,"requiredInsuranceSales":null,"targetPatientsMonth":null,"targetPatientsDay":null,"salesVariance":null,"shortfallMonth":null,"shortfallDay":null},{"key":607,"label":"令和6年7月","sales":17239749,"insuranceSales":17916790,"patients":77,"dailyPatients":3,"days":30,"unitPrice":232685.58441558442,"assessment":-1885441,"requiredSales":null,"requiredInsuranceSales":null,"targetPatientsMonth":null,"targetPatientsDay":null,"salesVariance":null,"shortfallMonth":null,"shortfallDay":null},{"key":608,"label":"令和6年8月","sales":22585832,"insuranceSales":21409950,"patients":93,"dailyPatients":3,"days":28,"unitPrice":230214.51612903227,"assessment":-537549,"requiredSales":null,"requiredInsuranceSales":null,"targetPatientsMonth":null,"targetPatientsDay":null,"salesVariance":null,"shortfallMonth":null,"shortfallDay":null},{"key":609,"label":"令和6年9月","sales":20891768,"insuranceSales":17714900,"patients":72,"dailyPatients":3,"days":25,"unitPrice":246040.27777777778,"assessment":303338,"requiredSales":null,"requiredInsuranceSales":null,"targetPatientsMonth":null,"targetPatientsDay":null,"salesVariance":null,"shortfallMonth":null,"shortfallDay":null},{"key":610,"label":"令和6年10月","sales":21391930,"insuranceSales":21186900,"patients":93,"dailyPatients":3,"days":28,"unitPrice":227816.12903225806,"assessment":-1579310,"requiredSales":null,"requiredInsuranceSales":null,"targetPatientsMonth":null,"targetPatientsDay":null,"salesVariance":null,"shortfallMonth":null,"shortfallDay":null},{"key":611,"label":"令和6年11月","sales":28966367,"insuranceSales":26141650,"patients":110,"dailyPatients":4,"days":26,"unitPrice":237651.36363636365,"assessment":334827,"requiredSales":null,"requiredInsuranceSales":null,"targetPatientsMonth":null,"targetPatientsDay":null,"salesVariance":null,"shortfallMonth":null,"shortfallDay":null},{"key":612,"label":"令和6年12月","sales":18038013,"insuranceSales":17415360,"patients":75,"dailyPatients":3,"days":27,"unitPrice":232204.8,"assessment":-1243247,"requiredSales":null,"requiredInsuranceSales":null,"targetPatientsMonth":null,"targetPatientsDay":null,"salesVariance":null,"shortfallMonth":null,"shortfallDay":null},{"key":701,"label":"令和7年1月","sales":21008939,"insuranceSales":21005060,"patients":95,"dailyPatients":4,"days":26,"unitPrice":221105.89473684211,"assessment":-1061221,"requiredSales":null,"requiredInsuranceSales":null,"targetPatientsMonth":null,"targetPatientsDay":null,"salesVariance":null,"shortfallMonth":null,"shortfallDay":null},{"key":702,"label":"令和7年2月","sales":26794388,"insuranceSales":25320070,"patients":116,"dailyPatients":5,"days":25,"unitPrice":218276.46551724139,"assessment":-263382,"requiredSales":null,"requiredInsuranceSales":null,"targetPatientsMonth":null,"targetPatientsDay":null,"salesVariance":null,"shortfallMonth":null,"shortfallDay":null},{"key":703,"label":"令和7年3月","sales":28802975,"insuranceSales":28050610,"patients":130,"dailyPatients":4,"days":29,"unitPrice":215773.92307692306,"assessment":-566775,"requiredSales":null,"requiredInsuranceSales":null,"targetPatientsMonth":null,"targetPatientsDay":null,"salesVariance":null,"shortfallMonth":null,"shortfallDay":null},{"key":704,"label":"令和7年4月","sales":27443427,"insuranceSales":25458270,"patients":119,"dailyPatients":4,"days":29,"unitPrice":213935.04201680672,"assessment":-681113,"requiredSales":null,"requiredInsuranceSales":null,"targetPatientsMonth":null,"targetPatientsDay":null,"salesVariance":null,"shortfallMonth":null,"shortfallDay":null},{"key":705,"label":"令和7年5月","sales":26051483,"insuranceSales":24906830,"patients":117,"dailyPatients":5,"days":26,"unitPrice":212878.88888888888,"assessment":-253097,"requiredSales":null,"requiredInsuranceSales":null,"targetPatientsMonth":null,"targetPatientsDay":null,"salesVariance":null,"shortfallMonth":null,"shortfallDay":null},{"key":706,"label":"令和7年6月","sales":27093600,"insuranceSales":24742620,"patients":116,"dailyPatients":4,"days":29,"unitPrice":213298.44827586206,"assessment":-938440,"requiredSales":null,"requiredInsuranceSales":null,"targetPatientsMonth":null,"targetPatientsDay":null,"salesVariance":null,"shortfallMonth":null,"shortfallDay":null},{"key":707,"label":"令和7年7月","sales":30020337,"insuranceSales":29419030,"patients":136,"dailyPatients":5,"days":30,"unitPrice":216316,"assessment":-1350803,"requiredSales":null,"requiredInsuranceSales":null,"targetPatientsMonth":null,"targetPatientsDay":null,"salesVariance":null,"shortfallMonth":null,"shortfallDay":null},{"key":708,"label":"令和7年8月","sales":32001338,"insuranceSales":31159650,"patients":143,"dailyPatients":5,"days":29,"unitPrice":217899.65034965036,"assessment":-997322,"requiredSales":null,"requiredInsuranceSales":null,"targetPatientsMonth":null,"targetPatientsDay":null,"salesVariance":null,"shortfallMonth":null,"shortfallDay":null},{"key":709,"label":"令和7年9月","sales":34805894,"insuranceSales":33186830,"patients":150,"dailyPatients":5,"days":28,"unitPrice":221245.53333333333,"assessment":-774806,"requiredSales":null,"requiredInsuranceSales":null,"targetPatientsMonth":null,"targetPatientsDay":null,"salesVariance":null,"shortfallMonth":null,"shortfallDay":null},{"key":710,"label":"令和7年10月","sales":36436603,"insuranceSales":32734580,"patients":147,"dailyPatients":5,"days":29,"unitPrice":222684.21768707482,"assessment":225523,"requiredSales":null,"requiredInsuranceSales":null,"targetPatientsMonth":null,"targetPatientsDay":null,"salesVariance":null,"shortfallMonth":null,"shortfallDay":null},{"key":711,"label":"令和7年11月","sales":32668022,"insuranceSales":31811980,"patients":142,"dailyPatients":5,"days":26,"unitPrice":224028.02816901408,"assessment":-1060878,"requiredSales":null,"requiredInsuranceSales":null,"targetPatientsMonth":null,"targetPatientsDay":null,"salesVariance":null,"shortfallMonth":null,"shortfallDay":null},{"key":712,"label":"令和7年12月","sales":37267037,"insuranceSales":34797970,"patients":157,"dailyPatients":5,"days":29,"unitPrice":221643.12101910828,"assessment":-9203,"requiredSales":null,"requiredInsuranceSales":null,"targetPatientsMonth":null,"targetPatientsDay":null,"salesVariance":null,"shortfallMonth":null,"shortfallDay":null},{"key":801,"label":"令和8年1月","sales":32996491,"insuranceSales":30727780,"patients":144,"dailyPatients":5,"days":28,"unitPrice":213387.36111111112,"assessment":-730819,"requiredSales":null,"requiredInsuranceSales":null,"targetPatientsMonth":null,"targetPatientsDay":null,"salesVariance":null,"shortfallMonth":null,"shortfallDay":null},{"key":802,"label":"令和8年2月","sales":30223287,"insuranceSales":28861510,"patients":138,"dailyPatients":5,"days":27,"unitPrice":209141.37681159421,"assessment":-1394863,"requiredSales":null,"requiredInsuranceSales":null,"targetPatientsMonth":null,"targetPatientsDay":null,"salesVariance":null,"shortfallMonth":null,"shortfallDay":null},{"key":803,"label":"令和8年3月","sales":33832840,"insuranceSales":31899000,"patients":153,"dailyPatients":5,"days":31,"unitPrice":208490.19607843139,"assessment":-758950,"requiredSales":null,"requiredInsuranceSales":null,"targetPatientsMonth":null,"targetPatientsDay":null,"salesVariance":null,"shortfallMonth":null,"shortfallDay":null},{"key":804,"label":"令和8年4月","sales":29883525,"insuranceSales":28797000,"patients":136,"dailyPatients":5,"days":29,"unitPrice":211742.64705882352,"assessment":-708905,"requiredSales":null,"requiredInsuranceSales":null,"targetPatientsMonth":null,"targetPatientsDay":null,"salesVariance":null,"shortfallMonth":null,"shortfallDay":null},{"key":805,"label":"令和8年5月","sales":31871509,"insuranceSales":29706740,"patients":143,"dailyPatients":5,"days":29,"unitPrice":207739.44055944055,"assessment":-1484991,"requiredSales":null,"requiredInsuranceSales":null,"targetPatientsMonth":null,"targetPatientsDay":null,"salesVariance":null,"shortfallMonth":null,"shortfallDay":null},{"key":806,"label":"令和8年6月","sales":37212122,"insuranceSales":33796170,"patients":157,"dailyPatients":5,"days":30,"unitPrice":215262.22929936307,"assessment":-89408,"requiredSales":null,"requiredInsuranceSales":null,"targetPatientsMonth":null,"targetPatientsDay":null,"salesVariance":null,"shortfallMonth":null,"shortfallDay":null},{"key":807,"label":"令和8年7月","sales":42792415,"insuranceSales":40029390,"patients":184,"dailyPatients":5,"days":28,"unitPrice":217551.03260869565,"assessment":-498905,"requiredSales":null,"requiredInsuranceSales":null,"targetPatientsMonth":null,"targetPatientsDay":null,"salesVariance":null,"shortfallMonth":null,"shortfallDay":null},{"key":808,"label":"令和8年8月","sales":31591150,"insuranceSales":30096660,"patients":167,"dailyPatients":6,"days":27,"unitPrice":180219.52095808383,"assessment":-797410,"requiredSales":null,"requiredInsuranceSales":null,"targetPatientsMonth":null,"targetPatientsDay":null,"salesVariance":null,"shortfallMonth":null,"shortfallDay":null},{"key":809,"label":"令和8年9月","sales":38456166,"insuranceSales":38278716,"patients":167,"dailyPatients":6,"days":27,"unitPrice":229213.868263473,"assessment":-497424,"requiredSales":null,"requiredInsuranceSales":null,"targetPatientsMonth":null,"targetPatientsDay":null,"salesVariance":null,"shortfallMonth":null,"shortfallDay":null}],"name":"みんなの血管外科池袋","simpleMode":false,"hideRequiredChart":true,"hideShortfall":true,"insuranceChartTitle":"OPE売上","insuranceSeriesLabel":"当期OPE売上","insuranceChartCap":"青棒=当期OPE金額合計 / オレンジ棒=前年同月","requiredInsuranceLabel":"OPEだけの必要売上高","requiredTotalLabel":"必要売上高（OPE＋その他）","salesTitle":"月次売上（OPE＋その他）","shortfallDailyLabel":"不足OPE患者数（OPEのみ）"},"湯沢クリニック":{"patientLabel":"保険来院患者数","unitPriceLabel":"保険来院患者単価","requiredTitle":"必要売上高","shortfallTitle":"不足来院患者数（保険のみ）","targetDayLabel":"","selfPayParts":[{"key":"checkup","label":"八街市健診","series":[{"key":710,"reiwaYear":7,"month":10,"label":"令和7年10月","rawLabel":"7年 10月","value":571900,"fiscalYear":"●令和7年度"}]},{"key":"flu","label":"インフルエンザ","series":[{"key":710,"reiwaYear":7,"month":10,"label":"令和7年10月","rawLabel":"7年 10月","value":3438276,"fiscalYear":"●令和7年度"}]},{"key":"other","label":"その他","series":[{"key":607,"reiwaYear":6,"month":7,"label":"令和6年7月","rawLabel":"令和6年7月","value":799574},{"key":608,"reiwaYear":6,"month":8,"label":"令和6年8月","rawLabel":"令和6年8月","value":1026383},{"key":609,"reiwaYear":6,"month":9,"label":"令和6年9月","rawLabel":"令和6年9月","value":1404833},{"key":610,"reiwaYear":6,"month":10,"label":"令和6年10月","rawLabel":"令和6年10月","value":5322657},{"key":611,"reiwaYear":6,"month":11,"label":"令和6年11月","rawLabel":"令和6年11月","value":7148875},{"key":612,"reiwaYear":6,"month":12,"label":"令和6年12月","rawLabel":"令和6年12月","value":4092069},{"key":701,"reiwaYear":7,"month":1,"label":"令和7年1月","rawLabel":"令和7年1月","value":1840216},{"key":702,"reiwaYear":7,"month":2,"label":"令和7年2月","rawLabel":"令和7年2月","value":1275419},{"key":703,"reiwaYear":7,"month":3,"label":"令和7年3月","rawLabel":"令和7年3月","value":1862509},{"key":704,"reiwaYear":7,"month":4,"label":"令和7年4月","rawLabel":"令和7年4月","value":1108871},{"key":705,"reiwaYear":7,"month":5,"label":"令和7年5月","rawLabel":"令和7年5月","value":1562735},{"key":706,"reiwaYear":7,"month":6,"label":"令和7年6月","rawLabel":"令和7年6月","value":1671942},{"key":707,"reiwaYear":7,"month":7,"label":"令和7年7月","rawLabel":"令和7年7月","value":1839967},{"key":708,"reiwaYear":7,"month":8,"label":"令和7年8月","rawLabel":"令和7年8月","value":1535574},{"key":709,"reiwaYear":7,"month":9,"label":"令和7年9月","rawLabel":"令和7年9月","value":2002266},{"key":710,"reiwaYear":7,"month":10,"label":"令和7年10月","rawLabel":"令和7年10月","value":2495088},{"key":711,"reiwaYear":7,"month":11,"label":"令和7年11月","rawLabel":"令和7年11月","value":6526413},{"key":712,"reiwaYear":7,"month":12,"label":"令和7年12月","rawLabel":"令和7年12月","value":3559811},{"key":801,"reiwaYear":8,"month":1,"label":"令和8年1月","rawLabel":"令和8年1月","value":2252775},{"key":802,"reiwaYear":8,"month":2,"label":"令和8年2月","rawLabel":"令和8年2月","value":1846239},{"key":803,"reiwaYear":8,"month":3,"label":"令和8年3月","rawLabel":"令和8年3月","value":2096887},{"key":804,"reiwaYear":8,"month":4,"label":"令和8年4月","rawLabel":"令和8年4月","value":1771968},{"key":805,"reiwaYear":8,"month":5,"label":"令和8年5月","rawLabel":"令和8年5月","value":1997593},{"key":806,"reiwaYear":8,"month":6,"label":"令和8年6月","rawLabel":"令和8年6月","value":1964910},{"key":807,"reiwaYear":8,"month":7,"label":"令和8年7月","rawLabel":"令和8年7月","value":1575065},{"key":808,"reiwaYear":8,"month":8,"label":"令和8年8月","rawLabel":"令和8年8月","value":1513494},{"key":809,"reiwaYear":8,"month":9,"label":"令和8年9月","rawLabel":"8年 9月","value":2029693,"fiscalYear":"●令和8年度"}]}],"months":[{"key":607,"label":"令和6年7月","sales":20955984,"insuranceSales":20156410,"patients":3824,"dailyPatients":147,"days":26,"unitPrice":5271.0277196652723,"assessment":null,"requiredSales":null,"requiredInsuranceSales":null,"targetPatientsMonth":null,"targetPatientsDay":null,"salesVariance":null,"shortfallMonth":null,"shortfallDay":null},{"key":608,"label":"令和6年8月","sales":17705803,"insuranceSales":16679420,"patients":3005,"dailyPatients":120,"days":25,"unitPrice":5550.5557404326128,"assessment":null,"requiredSales":null,"requiredInsuranceSales":null,"targetPatientsMonth":null,"targetPatientsDay":null,"salesVariance":null,"shortfallMonth":null,"shortfallDay":null},{"key":609,"label":"令和6年9月","sales":19386624,"insuranceSales":17981791,"patients":3248,"dailyPatients":141,"days":23,"unitPrice":5536.2657019704429,"assessment":null,"requiredSales":null,"requiredInsuranceSales":null,"targetPatientsMonth":null,"targetPatientsDay":null,"salesVariance":null,"shortfallMonth":null,"shortfallDay":null},{"key":610,"label":"令和6年10月","sales":25220548,"insuranceSales":19897891,"patients":3726,"dailyPatients":143,"days":26,"unitPrice":5340.2820719269994,"assessment":null,"requiredSales":null,"requiredInsuranceSales":null,"targetPatientsMonth":null,"targetPatientsDay":null,"salesVariance":null,"shortfallMonth":null,"shortfallDay":null},{"key":611,"label":"令和6年11月","sales":27124311,"insuranceSales":19975436,"patients":3803,"dailyPatients":165,"days":23,"unitPrice":5252.5469366289772,"assessment":null,"requiredSales":null,"requiredInsuranceSales":null,"targetPatientsMonth":null,"targetPatientsDay":null,"salesVariance":null,"shortfallMonth":null,"shortfallDay":null},{"key":612,"label":"令和6年12月","sales":26873406,"insuranceSales":22781337,"patients":4450,"dailyPatients":193,"days":23,"unitPrice":5119.4015730337078,"assessment":null,"requiredSales":null,"requiredInsuranceSales":null,"targetPatientsMonth":null,"targetPatientsDay":null,"salesVariance":null,"shortfallMonth":null,"shortfallDay":null},{"key":701,"label":"令和7年1月","sales":20733084,"insuranceSales":18892868,"patients":3662,"dailyPatients":166,"days":22,"unitPrice":5159.166575641726,"assessment":null,"requiredSales":null,"requiredInsuranceSales":null,"targetPatientsMonth":null,"targetPatientsDay":null,"salesVariance":null,"shortfallMonth":null,"shortfallDay":null},{"key":702,"label":"令和7年2月","sales":19852083,"insuranceSales":18576664,"patients":3361,"dailyPatients":153,"days":22,"unitPrice":5527.1240702171972,"assessment":null,"requiredSales":null,"requiredInsuranceSales":null,"targetPatientsMonth":null,"targetPatientsDay":null,"salesVariance":null,"shortfallMonth":null,"shortfallDay":null},{"key":703,"label":"令和7年3月","sales":21512853,"insuranceSales":19650344,"patients":3515,"dailyPatients":141,"days":25,"unitPrice":5590.4250355618778,"assessment":null,"requiredSales":null,"requiredInsuranceSales":null,"targetPatientsMonth":null,"targetPatientsDay":null,"salesVariance":null,"shortfallMonth":null,"shortfallDay":null},{"key":704,"label":"令和7年4月","sales":19467739,"insuranceSales":18358868,"patients":3183,"dailyPatients":138,"days":23,"unitPrice":5767.7876217404964,"assessment":null,"requiredSales":null,"requiredInsuranceSales":null,"targetPatientsMonth":null,"targetPatientsDay":null,"salesVariance":null,"shortfallMonth":null,"shortfallDay":null},{"key":705,"label":"令和7年5月","sales":19193645,"insuranceSales":17630910,"patients":3157,"dailyPatients":144,"days":22,"unitPrice":5584.7038327526134,"assessment":null,"requiredSales":null,"requiredInsuranceSales":null,"targetPatientsMonth":null,"targetPatientsDay":null,"salesVariance":null,"shortfallMonth":null,"shortfallDay":null},{"key":706,"label":"令和7年6月","sales":19900275,"insuranceSales":18228333,"patients":3182,"dailyPatients":127,"days":25,"unitPrice":5728.5773098680074,"assessment":null,"requiredSales":null,"requiredInsuranceSales":null,"targetPatientsMonth":null,"targetPatientsDay":null,"salesVariance":null,"shortfallMonth":null,"shortfallDay":null},{"key":707,"label":"令和7年7月","sales":20604977,"insuranceSales":18765010,"patients":3350,"dailyPatients":129,"days":26,"unitPrice":5601.49552238806,"assessment":null,"requiredSales":null,"requiredInsuranceSales":null,"targetPatientsMonth":null,"targetPatientsDay":null,"salesVariance":null,"shortfallMonth":null,"shortfallDay":null},{"key":708,"label":"令和7年8月","sales":18573127,"insuranceSales":17037553,"patients":2923,"dailyPatients":139,"days":21,"unitPrice":5828.789941840575,"assessment":null,"requiredSales":null,"requiredInsuranceSales":null,"targetPatientsMonth":null,"targetPatientsDay":null,"salesVariance":null,"shortfallMonth":null,"shortfallDay":null},{"key":709,"label":"令和7年9月","sales":20635906,"insuranceSales":18633640,"patients":3235,"dailyPatients":135,"days":24,"unitPrice":5760.0123647604323,"assessment":null,"requiredSales":null,"requiredInsuranceSales":null,"targetPatientsMonth":null,"targetPatientsDay":null,"salesVariance":null,"shortfallMonth":null,"shortfallDay":null},{"key":710,"label":"令和7年10月","sales":27312598,"insuranceSales":20807334,"patients":3640,"dailyPatients":140,"days":26,"unitPrice":5716.30054945055,"assessment":null,"requiredSales":null,"requiredInsuranceSales":null,"targetPatientsMonth":null,"targetPatientsDay":null,"salesVariance":null,"shortfallMonth":null,"shortfallDay":null},{"key":711,"label":"令和7年11月","sales":28050572,"insuranceSales":21524159,"patients":4054,"dailyPatients":176,"days":23,"unitPrice":5309.363344844598,"assessment":null,"requiredSales":null,"requiredInsuranceSales":null,"targetPatientsMonth":null,"targetPatientsDay":null,"salesVariance":null,"shortfallMonth":null,"shortfallDay":null},{"key":712,"label":"令和7年12月","sales":24370402,"insuranceSales":20810591,"patients":3702,"dailyPatients":154,"days":24,"unitPrice":5621.4454349000544,"assessment":null,"requiredSales":null,"requiredInsuranceSales":null,"targetPatientsMonth":null,"targetPatientsDay":null,"salesVariance":null,"shortfallMonth":null,"shortfallDay":null},{"key":801,"label":"令和8年1月","sales":22338085,"insuranceSales":20085310,"patients":3505,"dailyPatients":167,"days":21,"unitPrice":5730.4736091298146,"assessment":null,"requiredSales":null,"requiredInsuranceSales":null,"targetPatientsMonth":null,"targetPatientsDay":null,"salesVariance":null,"shortfallMonth":null,"shortfallDay":null},{"key":802,"label":"令和8年2月","sales":21481210,"insuranceSales":19634971,"patients":3681,"dailyPatients":167,"days":22,"unitPrice":5334.1404509644117,"assessment":null,"requiredSales":null,"requiredInsuranceSales":null,"targetPatientsMonth":null,"targetPatientsDay":null,"salesVariance":null,"shortfallMonth":null,"shortfallDay":null},{"key":803,"label":"令和8年3月","sales":22690332,"insuranceSales":20593445,"patients":3540,"dailyPatients":142,"days":25,"unitPrice":5817.3573446327682,"assessment":null,"requiredSales":null,"requiredInsuranceSales":null,"targetPatientsMonth":null,"targetPatientsDay":null,"salesVariance":null,"shortfallMonth":null,"shortfallDay":null},{"key":804,"label":"令和8年4月","sales":20430089,"insuranceSales":18658121,"patients":3151,"dailyPatients":131,"days":24,"unitPrice":5921.33322754681,"assessment":null,"requiredSales":null,"requiredInsuranceSales":null,"targetPatientsMonth":null,"targetPatientsDay":null,"salesVariance":null,"shortfallMonth":null,"shortfallDay":null},{"key":805,"label":"令和8年5月","sales":19406723,"insuranceSales":17409130,"patients":2954,"dailyPatients":141,"days":21,"unitPrice":5893.4089370345291,"assessment":null,"requiredSales":null,"requiredInsuranceSales":null,"targetPatientsMonth":null,"targetPatientsDay":null,"salesVariance":null,"shortfallMonth":null,"shortfallDay":null},{"key":806,"label":"令和8年6月","sales":21054929,"insuranceSales":19090019,"patients":3443,"dailyPatients":132,"days":26,"unitPrice":5544.58873075806,"assessment":null,"requiredSales":null,"requiredInsuranceSales":null,"targetPatientsMonth":null,"targetPatientsDay":null,"salesVariance":null,"shortfallMonth":null,"shortfallDay":null},{"key":807,"label":"令和8年7月","sales":21180913,"insuranceSales":19605848,"patients":3323,"dailyPatients":128,"days":26,"unitPrice":5900.0445380680112,"assessment":null,"requiredSales":null,"requiredInsuranceSales":null,"targetPatientsMonth":null,"targetPatientsDay":null,"salesVariance":null,"shortfallMonth":null,"shortfallDay":null},{"key":808,"label":"令和8年8月","sales":17814903,"insuranceSales":16301409,"patients":2678,"dailyPatients":134,"days":20,"unitPrice":6087.1579536967884,"assessment":null,"requiredSales":null,"requiredInsuranceSales":null,"targetPatientsMonth":null,"targetPatientsDay":null,"salesVariance":null,"shortfallMonth":null,"shortfallDay":null},{"key":809,"label":"令和8年9月","sales":20395438,"insuranceSales":18365745,"patients":3093,"dailyPatients":134,"days":23,"unitPrice":5937.84190106692,"assessment":null,"requiredSales":null,"requiredInsuranceSales":null,"targetPatientsMonth":null,"targetPatientsDay":null,"salesVariance":null,"shortfallMonth":null,"shortfallDay":null}],"name":"湯沢クリニック","simpleMode":false,"hideRequiredChart":true,"hideShortfall":true,"insuranceChartTitle":"保険診療売上","insuranceSeriesLabel":"当期保険診療","insuranceChartCap":"青棒=当期保険金額合計 / オレンジ棒=前年同月","requiredInsuranceLabel":"保険だけの必要売上高","requiredTotalLabel":"必要売上高（保険＋自費）","salesTitle":"月次売上（保険＋自費）","shortfallDailyLabel":"不足来院患者数（保険のみ）"},"総合計":{"patientLabel":"患者数合計","unitPriceLabel":"単価（売上÷患者数）","requiredTitle":"必要売上高","shortfallTitle":"不足患者数（合算）","targetDayLabel":"必要売上高に達する１日あたりの来院患者数（合算）","selfPayParts":[{"key":"シルガード","label":"シルガード","series":[{"key":508,"label":"令和5年8月","value":57310,"reiwaYear":5,"month":8,"rawLabel":"5年 8月","fiscalYear":"●令和5年度"},{"key":509,"label":"令和5年9月","value":200585,"reiwaYear":5,"month":9,"rawLabel":"5年 9月","fiscalYear":"●令和5年度"},{"key":510,"label":"令和5年10月","value":200585,"reiwaYear":5,"month":10,"rawLabel":"5年 10月","fiscalYear":"●令和5年度"},{"key":511,"label":"令和5年11月","value":200585,"reiwaYear":5,"month":11,"rawLabel":"5年 11月","fiscalYear":"●令和5年度"},{"key":512,"label":"令和5年12月","value":28655,"reiwaYear":5,"month":12,"rawLabel":"5年 12月","fiscalYear":"●令和5年度"},{"key":601,"label":"令和6年1月","value":257895,"reiwaYear":6,"month":1,"rawLabel":"6年 1月","fiscalYear":"●令和5年度"},{"key":602,"label":"令和6年2月","value":200585,"reiwaYear":6,"month":2,"rawLabel":"6年 2月","fiscalYear":"●令和5年度"},{"key":603,"label":"令和6年3月","value":315205,"reiwaYear":6,"month":3,"rawLabel":"6年 3月","fiscalYear":"●令和5年度"},{"key":604,"label":"令和6年4月","value":243869,"reiwaYear":6,"month":4,"rawLabel":"6年 4月","fiscalYear":"●令和5年度"},{"key":605,"label":"令和6年5月","value":333812,"reiwaYear":6,"month":5,"rawLabel":"6年 5月","fiscalYear":"●令和5年度"},{"key":606,"label":"令和6年6月","value":695064,"reiwaYear":6,"month":6,"rawLabel":"6年 6月","fiscalYear":"●令和5年度"},{"key":607,"label":"令和6年7月","value":447774,"reiwaYear":6,"month":7,"rawLabel":"6年 7月","fiscalYear":"●令和5年度"},{"key":608,"label":"令和6年8月","value":1057806,"reiwaYear":6,"month":8,"rawLabel":"6年 8月","fiscalYear":"●令和6年度"},{"key":609,"label":"令和6年9月","value":2004912,"reiwaYear":6,"month":9,"rawLabel":"6年 9月","fiscalYear":"●令和6年度"},{"key":610,"label":"令和6年10月","value":638737,"reiwaYear":6,"month":10,"rawLabel":"6年 10月","fiscalYear":"●令和6年度"},{"key":611,"label":"令和6年11月","value":1621610,"reiwaYear":6,"month":11,"rawLabel":"6年 11月","fiscalYear":"●令和6年度"},{"key":612,"label":"令和6年12月","value":1021087,"reiwaYear":6,"month":12,"rawLabel":"6年 12月","fiscalYear":"●令和6年度"},{"key":701,"label":"令和7年1月","value":200484,"reiwaYear":7,"month":1,"rawLabel":"7年 1月","fiscalYear":"●令和6年度"},{"key":702,"label":"令和7年2月","value":805341,"reiwaYear":7,"month":2,"rawLabel":"7年 2月","fiscalYear":"●令和6年度"},{"key":703,"label":"令和7年3月","value":2658505,"reiwaYear":7,"month":3,"rawLabel":"7年 3月","fiscalYear":"●令和6年度"},{"key":704,"label":"令和7年4月","value":525573,"reiwaYear":7,"month":4,"rawLabel":"7年 4月","fiscalYear":"●令和6年度"},{"key":705,"label":"令和7年5月","value":756324,"reiwaYear":7,"month":5,"rawLabel":"7年 5月","fiscalYear":"●令和6年度"},{"key":706,"label":"令和7年6月","value":385029,"reiwaYear":7,"month":6,"rawLabel":"7年 6月","fiscalYear":"●令和6年度"},{"key":707,"label":"令和7年7月","value":167346,"reiwaYear":7,"month":7,"rawLabel":"7年 7月","fiscalYear":"●令和6年度"},{"key":708,"label":"令和7年8月","value":117009,"reiwaYear":7,"month":8,"rawLabel":"7年 8月","fiscalYear":"●令和7年度"},{"key":709,"label":"令和7年9月","value":569376,"reiwaYear":7,"month":9,"rawLabel":"7年 9月","fiscalYear":"●令和7年度"},{"key":710,"label":"令和7年10月","value":398097,"reiwaYear":7,"month":10,"rawLabel":"7年 10月","fiscalYear":"●令和7年度"},{"key":711,"label":"令和7年11月","value":167526,"reiwaYear":7,"month":11,"rawLabel":"7年 11月","fiscalYear":"●令和7年度"},{"key":712,"label":"令和7年12月","value":113742,"reiwaYear":7,"month":12,"rawLabel":"7年 12月","fiscalYear":"●令和7年度"},{"key":801,"label":"令和8年1月","value":53604,"reiwaYear":8,"month":1,"rawLabel":"8年 1月","fiscalYear":"●令和7年度"},{"key":803,"label":"令和8年3月","value":53604,"reiwaYear":8,"month":3,"rawLabel":"8年 3月","fiscalYear":"●令和7年度"},{"key":804,"label":"令和8年4月","value":80406,"reiwaYear":8,"month":4,"rawLabel":"8年 4月","fiscalYear":"●令和7年度"},{"key":805,"label":"令和8年5月","value":83673,"reiwaYear":8,"month":5,"rawLabel":"8年 5月","fiscalYear":"●令和7年度"},{"key":806,"label":"令和8年6月","value":53604,"reiwaYear":8,"month":6,"rawLabel":"8年 6月","fiscalYear":"●令和7年度"},{"key":807,"label":"令和8年7月","value":53604,"reiwaYear":8,"month":7,"rawLabel":"8年 7月","fiscalYear":"●令和7年度"},{"key":808,"label":"令和8年8月","value":107208,"reiwaYear":8,"month":8,"rawLabel":"8年 8月","fiscalYear":"●令和8年度"},{"key":809,"reiwaYear":8,"month":9,"label":"令和8年9月","rawLabel":"8年 9月","value":53604,"fiscalYear":"●令和8年度"}]},{"key":"我孫子市健診","label":"我孫子市健診","series":[{"key":408,"label":"令和4年8月","value":306733,"reiwaYear":4,"month":8,"rawLabel":"4年 8月","fiscalYear":"●令和4年度"},{"key":409,"label":"令和4年9月","value":411842,"reiwaYear":4,"month":9,"rawLabel":"4年 9月","fiscalYear":"●令和4年度"},{"key":410,"label":"令和4年10月","value":518420,"reiwaYear":4,"month":10,"rawLabel":"4年 10月","fiscalYear":"●令和4年度"},{"key":411,"label":"令和4年11月","value":249669,"reiwaYear":4,"month":11,"rawLabel":"4年 11月","fiscalYear":"●令和4年度"},{"key":412,"label":"令和4年12月","value":355549,"reiwaYear":4,"month":12,"rawLabel":"4年 12月","fiscalYear":"●令和4年度"},{"key":501,"label":"令和5年1月","value":195195,"reiwaYear":5,"month":1,"rawLabel":"5年 1月","fiscalYear":"●令和4年度"},{"key":502,"label":"令和5年2月","value":244889,"reiwaYear":5,"month":2,"rawLabel":"5年 2月","fiscalYear":"●令和4年度"},{"key":506,"label":"令和5年6月","value":98331,"reiwaYear":5,"month":6,"rawLabel":"5年 6月","fiscalYear":"●令和4年度"},{"key":507,"label":"令和5年7月","value":185222,"reiwaYear":5,"month":7,"rawLabel":"5年 7月","fiscalYear":"●令和4年度"},{"key":508,"label":"令和5年8月","value":148551,"reiwaYear":5,"month":8,"rawLabel":"5年 8月","fiscalYear":"●令和5年度"},{"key":509,"label":"令和5年9月","value":225958,"reiwaYear":5,"month":9,"rawLabel":"5年 9月","fiscalYear":"●令和5年度"},{"key":510,"label":"令和5年10月","value":350274,"reiwaYear":5,"month":10,"rawLabel":"5年 10月","fiscalYear":"●令和5年度"},{"key":511,"label":"令和5年11月","value":421592,"reiwaYear":5,"month":11,"rawLabel":"5年 11月","fiscalYear":"●令和5年度"},{"key":512,"label":"令和5年12月","value":285539,"reiwaYear":5,"month":12,"rawLabel":"5年 12月","fiscalYear":"●令和5年度"},{"key":601,"label":"令和6年1月","value":267543,"reiwaYear":6,"month":1,"rawLabel":"6年 1月","fiscalYear":"●令和5年度"},{"key":602,"label":"令和6年2月","value":331975,"reiwaYear":6,"month":2,"rawLabel":"6年 2月","fiscalYear":"●令和5年度"},{"key":606,"label":"令和6年6月","value":92061,"reiwaYear":6,"month":6,"rawLabel":"6年 6月","fiscalYear":"●令和5年度"},{"key":607,"label":"令和6年7月","value":185222,"reiwaYear":6,"month":7,"rawLabel":"6年 7月","fiscalYear":"●令和5年度"},{"key":608,"label":"令和6年8月","value":193644,"reiwaYear":6,"month":8,"rawLabel":"6年 8月","fiscalYear":"●令和6年度"},{"key":609,"label":"令和6年9月","value":263395,"reiwaYear":6,"month":9,"rawLabel":"6年 9月","fiscalYear":"●令和6年度"},{"key":610,"label":"令和6年10月","value":355652,"reiwaYear":6,"month":10,"rawLabel":"6年 10月","fiscalYear":"●令和6年度"},{"key":611,"label":"令和6年11月","value":357423,"reiwaYear":6,"month":11,"rawLabel":"6年 11月","fiscalYear":"●令和6年度"},{"key":612,"label":"令和6年12月","value":365354,"reiwaYear":6,"month":12,"rawLabel":"6年 12月","fiscalYear":"●令和6年度"},{"key":701,"label":"令和7年1月","value":300939,"reiwaYear":7,"month":1,"rawLabel":"7年 1月","fiscalYear":"●令和6年度"},{"key":702,"label":"令和7年2月","value":427273,"reiwaYear":7,"month":2,"rawLabel":"7年 2月","fiscalYear":"●令和6年度"},{"key":706,"label":"令和7年6月","value":227408,"reiwaYear":7,"month":6,"rawLabel":"7年 6月","fiscalYear":"●令和6年度"},{"key":707,"label":"令和7年7月","value":378166,"reiwaYear":7,"month":7,"rawLabel":"7年 7月","fiscalYear":"●令和6年度"},{"key":708,"label":"令和7年8月","value":439742,"reiwaYear":7,"month":8,"rawLabel":"7年 8月","fiscalYear":"●令和7年度"},{"key":709,"label":"令和7年9月","value":252135,"reiwaYear":7,"month":9,"rawLabel":"7年 9月","fiscalYear":"●令和7年度"},{"key":710,"label":"令和7年10月","value":447695,"reiwaYear":7,"month":10,"rawLabel":"7年 10月","fiscalYear":"●令和7年度"},{"key":711,"label":"令和7年11月","value":574741,"reiwaYear":7,"month":11,"rawLabel":"7年 11月","fiscalYear":"●令和7年度"},{"key":712,"label":"令和7年12月","value":330361,"reiwaYear":7,"month":12,"rawLabel":"7年 12月","fiscalYear":"●令和7年度"},{"key":801,"label":"令和8年1月","value":491506,"reiwaYear":8,"month":1,"rawLabel":"8年 1月","fiscalYear":"●令和7年度"},{"key":802,"label":"令和8年2月","value":337092,"reiwaYear":8,"month":2,"rawLabel":"8年 2月","fiscalYear":"●令和7年度"},{"key":806,"label":"令和8年6月","value":164726,"reiwaYear":8,"month":6,"rawLabel":"8年 6月","fiscalYear":"●令和7年度"},{"key":807,"label":"令和8年7月","value":198300,"reiwaYear":8,"month":7,"rawLabel":"8年 7月","fiscalYear":"●令和7年度"},{"key":808,"label":"令和8年8月","value":180952,"reiwaYear":8,"month":8,"rawLabel":"8年 8月","fiscalYear":"●令和8年度"},{"key":809,"reiwaYear":8,"month":9,"label":"令和8年9月","rawLabel":"8年 9月","value":307814,"fiscalYear":"●令和8年度"}]},{"key":"企業健診","label":"企業健診","series":[{"key":408,"label":"令和4年8月","value":209000,"reiwaYear":4,"month":8,"rawLabel":"4年 8月","fiscalYear":"●令和4年度"},{"key":409,"label":"令和4年9月","value":613000,"reiwaYear":4,"month":9,"rawLabel":"4年 9月","fiscalYear":"●令和4年度"},{"key":410,"label":"令和4年10月","value":270000,"reiwaYear":4,"month":10,"rawLabel":"4年 10月","fiscalYear":"●令和4年度"},{"key":411,"label":"令和4年11月","value":453000,"reiwaYear":4,"month":11,"rawLabel":"4年 11月","fiscalYear":"●令和4年度"},{"key":412,"label":"令和4年12月","value":405000,"reiwaYear":4,"month":12,"rawLabel":"4年 12月","fiscalYear":"●令和4年度"},{"key":501,"label":"令和5年1月","value":430000,"reiwaYear":5,"month":1,"rawLabel":"5年 1月","fiscalYear":"●令和4年度"},{"key":502,"label":"令和5年2月","value":334000,"reiwaYear":5,"month":2,"rawLabel":"5年 2月","fiscalYear":"●令和4年度"},{"key":503,"label":"令和5年3月","value":701000,"reiwaYear":5,"month":3,"rawLabel":"5年 3月","fiscalYear":"●令和4年度"},{"key":504,"label":"令和5年4月","value":598400,"reiwaYear":5,"month":4,"rawLabel":"5年 4月","fiscalYear":"●令和4年度"},{"key":505,"label":"令和5年5月","value":515000,"reiwaYear":5,"month":5,"rawLabel":"5年 5月","fiscalYear":"●令和4年度"},{"key":506,"label":"令和5年6月","value":241500,"reiwaYear":5,"month":6,"rawLabel":"5年 6月","fiscalYear":"●令和4年度"},{"key":507,"label":"令和5年7月","value":200000,"reiwaYear":5,"month":7,"rawLabel":"5年 7月","fiscalYear":"●令和4年度"},{"key":508,"label":"令和5年8月","value":434300,"reiwaYear":5,"month":8,"rawLabel":"5年 8月","fiscalYear":"●令和5年度"},{"key":509,"label":"令和5年9月","value":365900,"reiwaYear":5,"month":9,"rawLabel":"5年 9月","fiscalYear":"●令和5年度"},{"key":510,"label":"令和5年10月","value":361000,"reiwaYear":5,"month":10,"rawLabel":"5年 10月","fiscalYear":"●令和5年度"},{"key":511,"label":"令和5年11月","value":531000,"reiwaYear":5,"month":11,"rawLabel":"5年 11月","fiscalYear":"●令和5年度"},{"key":512,"label":"令和5年12月","value":252000,"reiwaYear":5,"month":12,"rawLabel":"5年 12月","fiscalYear":"●令和5年度"},{"key":601,"label":"令和6年1月","value":137000,"reiwaYear":6,"month":1,"rawLabel":"6年 1月","fiscalYear":"●令和5年度"},{"key":602,"label":"令和6年2月","value":411000,"reiwaYear":6,"month":2,"rawLabel":"6年 2月","fiscalYear":"●令和5年度"},{"key":603,"label":"令和6年3月","value":327000,"reiwaYear":6,"month":3,"rawLabel":"6年 3月","fiscalYear":"●令和5年度"},{"key":604,"label":"令和6年4月","value":358000,"reiwaYear":6,"month":4,"rawLabel":"6年 4月","fiscalYear":"●令和5年度"},{"key":605,"label":"令和6年5月","value":254600,"reiwaYear":6,"month":5,"rawLabel":"6年 5月","fiscalYear":"●令和5年度"},{"key":606,"label":"令和6年6月","value":381980,"reiwaYear":6,"month":6,"rawLabel":"6年 6月","fiscalYear":"●令和5年度"},{"key":607,"label":"令和6年7月","value":604200,"reiwaYear":6,"month":7,"rawLabel":"6年 7月","fiscalYear":"●令和5年度"},{"key":608,"label":"令和6年8月","value":137200,"reiwaYear":6,"month":8,"rawLabel":"6年 8月","fiscalYear":"●令和6年度"},{"key":609,"label":"令和6年9月","value":84000,"reiwaYear":6,"month":9,"rawLabel":"6年 9月","fiscalYear":"●令和6年度"},{"key":610,"label":"令和6年10月","value":129400,"reiwaYear":6,"month":10,"rawLabel":"6年 10月","fiscalYear":"●令和6年度"},{"key":611,"label":"令和6年11月","value":9900,"reiwaYear":6,"month":11,"rawLabel":"6年 11月","fiscalYear":"●令和6年度"},{"key":612,"label":"令和6年12月","value":142400,"reiwaYear":6,"month":12,"rawLabel":"6年 12月","fiscalYear":"●令和6年度"},{"key":701,"label":"令和7年1月","value":56000,"reiwaYear":7,"month":1,"rawLabel":"7年 1月","fiscalYear":"●令和6年度"},{"key":705,"label":"令和7年5月","value":267300,"reiwaYear":7,"month":5,"rawLabel":"7年 5月","fiscalYear":"●令和6年度"},{"key":706,"label":"令和7年6月","value":237600,"reiwaYear":7,"month":6,"rawLabel":"7年 6月","fiscalYear":"●令和6年度"},{"key":707,"label":"令和7年7月","value":148200,"reiwaYear":7,"month":7,"rawLabel":"7年 7月","fiscalYear":"●令和6年度"},{"key":708,"label":"令和7年8月","value":112200,"reiwaYear":7,"month":8,"rawLabel":"7年 8月","fiscalYear":"●令和7年度"},{"key":709,"label":"令和7年9月","value":195700,"reiwaYear":7,"month":9,"rawLabel":"7年 9月","fiscalYear":"●令和7年度"},{"key":710,"label":"令和7年10月","value":69700,"reiwaYear":7,"month":10,"rawLabel":"7年 10月","fiscalYear":"●令和7年度"},{"key":711,"label":"令和7年11月","value":49500,"reiwaYear":7,"month":11,"rawLabel":"7年 11月","fiscalYear":"●令和7年度"},{"key":712,"label":"令和7年12月","value":9900,"reiwaYear":7,"month":12,"rawLabel":"7年 12月","fiscalYear":"●令和7年度"},{"key":801,"label":"令和8年1月","value":18000,"reiwaYear":8,"month":1,"rawLabel":"8年 1月","fiscalYear":"●令和7年度"},{"key":806,"label":"令和8年6月","value":105600,"reiwaYear":8,"month":6,"rawLabel":"8年 6月","fiscalYear":"●令和7年度"},{"key":807,"label":"令和8年7月","value":363000,"reiwaYear":8,"month":7,"rawLabel":"8年 7月","fiscalYear":"●令和7年度"}]},{"key":"インフルエンザ","label":"インフルエンザ","series":[{"key":410,"label":"令和4年10月","value":556446,"reiwaYear":4,"month":10,"rawLabel":"4年 10月","fiscalYear":"●令和4年度"},{"key":411,"label":"令和4年11月","value":626294,"reiwaYear":4,"month":11,"rawLabel":"4年 11月","fiscalYear":"●令和4年度"},{"key":412,"label":"令和4年12月","value":260330,"reiwaYear":4,"month":12,"rawLabel":"4年 12月","fiscalYear":"●令和4年度"},{"key":501,"label":"令和5年1月","value":479326,"reiwaYear":5,"month":1,"rawLabel":"5年 1月","fiscalYear":"●令和4年度"},{"key":503,"label":"令和5年3月","value":8232,"reiwaYear":5,"month":3,"rawLabel":"5年 3月","fiscalYear":"●令和4年度"},{"key":510,"label":"令和5年10月","value":2394925,"reiwaYear":5,"month":10,"rawLabel":"5年 10月","fiscalYear":"●令和5年度"},{"key":511,"label":"令和5年11月","value":1953934,"reiwaYear":5,"month":11,"rawLabel":"5年 11月","fiscalYear":"●令和5年度"},{"key":512,"label":"令和5年12月","value":578199,"reiwaYear":5,"month":12,"rawLabel":"5年 12月","fiscalYear":"●令和5年度"},{"key":601,"label":"令和6年1月","value":46524,"reiwaYear":6,"month":1,"rawLabel":"6年 1月","fiscalYear":"●令和5年度"},{"key":610,"label":"令和6年10月","value":1382605,"reiwaYear":6,"month":10,"rawLabel":"6年 10月","fiscalYear":"●令和6年度"},{"key":611,"label":"令和6年11月","value":2892800,"reiwaYear":6,"month":11,"rawLabel":"6年 11月","fiscalYear":"●令和6年度"},{"key":612,"label":"令和6年12月","value":1386907,"reiwaYear":6,"month":12,"rawLabel":"6年 12月","fiscalYear":"●令和6年度"},{"key":701,"label":"令和7年1月","value":341988,"reiwaYear":7,"month":1,"rawLabel":"7年 1月","fiscalYear":"●令和6年度"},{"key":710,"label":"令和7年10月","value":6684175,"reiwaYear":7,"month":10,"rawLabel":"7年 10月","fiscalYear":"●令和7年度"},{"key":711,"label":"令和7年11月","value":3824574,"reiwaYear":7,"month":11,"rawLabel":"7年 11月","fiscalYear":"●令和7年度"},{"key":712,"label":"令和7年12月","value":876604,"reiwaYear":7,"month":12,"rawLabel":"7年 12月","fiscalYear":"●令和7年度"},{"key":801,"label":"令和8年1月","value":101547,"reiwaYear":8,"month":1,"rawLabel":"8年 1月","fiscalYear":"●令和7年度"},{"key":802,"label":"令和8年2月","value":57469,"reiwaYear":8,"month":2,"rawLabel":"8年 2月","fiscalYear":"●令和7年度"}]},{"key":"その他","label":"その他","series":[{"key":408,"label":"令和4年8月","value":482768,"reiwaYear":4,"month":8,"rawLabel":"4年 8月","fiscalYear":"●令和4年度"},{"key":409,"label":"令和4年9月","value":486591,"reiwaYear":4,"month":9,"rawLabel":"4年 9月","fiscalYear":"●令和4年度"},{"key":410,"label":"令和4年10月","value":723745,"reiwaYear":4,"month":10,"rawLabel":"4年 10月","fiscalYear":"●令和4年度"},{"key":411,"label":"令和4年11月","value":2043901,"reiwaYear":4,"month":11,"rawLabel":"4年 11月","fiscalYear":"●令和4年度"},{"key":412,"label":"令和4年12月","value":1078639,"reiwaYear":4,"month":12,"rawLabel":"4年 12月","fiscalYear":"●令和4年度"},{"key":501,"label":"令和5年1月","value":407147,"reiwaYear":5,"month":1,"rawLabel":"5年 1月","fiscalYear":"●令和4年度"},{"key":502,"label":"令和5年2月","value":426941,"reiwaYear":5,"month":2,"rawLabel":"5年 2月","fiscalYear":"●令和4年度"},{"key":503,"label":"令和5年3月","value":671684,"reiwaYear":5,"month":3,"rawLabel":"5年 3月","fiscalYear":"●令和4年度"},{"key":504,"label":"令和5年4月","value":686247,"reiwaYear":5,"month":4,"rawLabel":"5年 4月","fiscalYear":"●令和4年度"},{"key":505,"label":"令和5年5月","value":880008,"reiwaYear":5,"month":5,"rawLabel":"5年 5月","fiscalYear":"●令和4年度"},{"key":506,"label":"令和5年6月","value":1126795,"reiwaYear":5,"month":6,"rawLabel":"5年 6月","fiscalYear":"●令和4年度"},{"key":507,"label":"令和5年7月","value":1083137,"reiwaYear":5,"month":7,"rawLabel":"5年 7月","fiscalYear":"●令和4年度"},{"key":508,"label":"令和5年8月","value":778748,"reiwaYear":5,"month":8,"rawLabel":"5年 8月","fiscalYear":"●令和5年度"},{"key":509,"label":"令和5年9月","value":982846,"reiwaYear":5,"month":9,"rawLabel":"5年 9月","fiscalYear":"●令和5年度"},{"key":510,"label":"令和5年10月","value":999857,"reiwaYear":5,"month":10,"rawLabel":"5年 10月","fiscalYear":"●令和5年度"},{"key":511,"label":"令和5年11月","value":1214375,"reiwaYear":5,"month":11,"rawLabel":"5年 11月","fiscalYear":"●令和5年度"},{"key":512,"label":"令和5年12月","value":728753,"reiwaYear":5,"month":12,"rawLabel":"5年 12月","fiscalYear":"●令和5年度"},{"key":601,"label":"令和6年1月","value":865453,"reiwaYear":6,"month":1,"rawLabel":"6年 1月","fiscalYear":"●令和5年度"},{"key":602,"label":"令和6年2月","value":1103022,"reiwaYear":6,"month":2,"rawLabel":"6年 2月","fiscalYear":"●令和5年度"},{"key":603,"label":"令和6年3月","value":1107400,"reiwaYear":6,"month":3,"rawLabel":"6年 3月","fiscalYear":"●令和5年度"},{"key":604,"label":"令和6年4月","value":671365,"reiwaYear":6,"month":4,"rawLabel":"6年 4月","fiscalYear":"●令和5年度"},{"key":605,"label":"令和6年5月","value":666221,"reiwaYear":6,"month":5,"rawLabel":"6年 5月","fiscalYear":"●令和5年度"},{"key":606,"label":"令和6年6月","value":560792,"reiwaYear":6,"month":6,"rawLabel":"6年 6月","fiscalYear":"●令和5年度"},{"key":607,"label":"令和6年7月","value":1810905,"reiwaYear":6,"month":7,"rawLabel":"6年 7月","fiscalYear":"●令和5年度"},{"key":608,"label":"令和6年8月","value":1419768,"reiwaYear":6,"month":8,"rawLabel":"6年 8月","fiscalYear":"●令和6年度"},{"key":609,"label":"令和6年9月","value":1887741,"reiwaYear":6,"month":9,"rawLabel":"6年 9月","fiscalYear":"●令和6年度"},{"key":610,"label":"令和6年10月","value":6623378,"reiwaYear":6,"month":10,"rawLabel":"6年 10月","fiscalYear":"●令和6年度"},{"key":611,"label":"令和6年11月","value":8847252,"reiwaYear":6,"month":11,"rawLabel":"6年 11月","fiscalYear":"●令和6年度"},{"key":612,"label":"令和6年12月","value":5873854,"reiwaYear":6,"month":12,"rawLabel":"6年 12月","fiscalYear":"●令和6年度"},{"key":701,"label":"令和7年1月","value":2403868,"reiwaYear":7,"month":1,"rawLabel":"7年 1月","fiscalYear":"●令和6年度"},{"key":702,"label":"令和7年2月","value":1712673,"reiwaYear":7,"month":2,"rawLabel":"7年 2月","fiscalYear":"●令和6年度"},{"key":703,"label":"令和7年3月","value":2263507,"reiwaYear":7,"month":3,"rawLabel":"7年 3月","fiscalYear":"●令和6年度"},{"key":704,"label":"令和7年4月","value":1348732,"reiwaYear":7,"month":4,"rawLabel":"7年 4月","fiscalYear":"●令和6年度"},{"key":705,"label":"令和7年5月","value":1722995,"reiwaYear":7,"month":5,"rawLabel":"7年 5月","fiscalYear":"●令和6年度"},{"key":706,"label":"令和7年6月","value":1986519,"reiwaYear":7,"month":6,"rawLabel":"7年 6月","fiscalYear":"●令和6年度"},{"key":707,"label":"令和7年7月","value":2191499,"reiwaYear":7,"month":7,"rawLabel":"7年 7月","fiscalYear":"●令和6年度"},{"key":708,"label":"令和7年8月","value":3179444,"reiwaYear":7,"month":8,"rawLabel":"7年 8月","fiscalYear":"●令和7年度"},{"key":709,"label":"令和7年9月","value":3892178,"reiwaYear":7,"month":9,"rawLabel":"7年 9月","fiscalYear":"●令和7年度"},{"key":710,"label":"令和7年10月","value":5620116,"reiwaYear":7,"month":10,"rawLabel":"7年 10月","fiscalYear":"●令和7年度"},{"key":711,"label":"令和7年11月","value":9501866,"reiwaYear":7,"month":11,"rawLabel":"7年 11月","fiscalYear":"●令和7年度"},{"key":712,"label":"令和7年12月","value":7009641,"reiwaYear":7,"month":12,"rawLabel":"7年 12月","fiscalYear":"●令和7年度"},{"key":801,"label":"令和8年1月","value":4255428,"reiwaYear":8,"month":1,"rawLabel":"8年 1月","fiscalYear":"●令和7年度"},{"key":802,"label":"令和8年2月","value":3537500,"reiwaYear":8,"month":2,"rawLabel":"8年 2月","fiscalYear":"●令和7年度"},{"key":803,"label":"令和8年3月","value":3904295,"reiwaYear":8,"month":3,"rawLabel":"8年 3月","fiscalYear":"●令和7年度"},{"key":804,"label":"令和8年4月","value":2665814,"reiwaYear":8,"month":4,"rawLabel":"8年 4月","fiscalYear":"●令和7年度"},{"key":805,"label":"令和8年5月","value":3099937,"reiwaYear":8,"month":5,"rawLabel":"8年 5月","fiscalYear":"●令和7年度"},{"key":806,"label":"令和8年6月","value":3428101,"reiwaYear":8,"month":6,"rawLabel":"8年 6月","fiscalYear":"●令和7年度"},{"key":807,"label":"令和8年7月","value":3387957,"reiwaYear":8,"month":7,"rawLabel":"8年 7月","fiscalYear":"●令和7年度"},{"key":808,"label":"令和8年8月","value":2759622,"reiwaYear":8,"month":8,"rawLabel":"8年 8月","fiscalYear":"●令和8年度"},{"key":809,"reiwaYear":8,"month":9,"label":"令和8年9月","rawLabel":"8年 9月","value":4242562,"fiscalYear":"●令和8年度"}]},{"key":"中野区区民健診","label":"中野区区民健診","series":[{"key":505,"label":"令和5年5月","value":25676,"reiwaYear":5,"month":5,"rawLabel":"5年 5月","fiscalYear":"●令和4年度"},{"key":506,"label":"令和5年6月","value":347225,"reiwaYear":5,"month":6,"rawLabel":"5年 6月","fiscalYear":"●令和4年度"},{"key":507,"label":"令和5年7月","value":413746,"reiwaYear":5,"month":7,"rawLabel":"5年 7月","fiscalYear":"●令和4年度"},{"key":508,"label":"令和5年8月","value":468158,"reiwaYear":5,"month":8,"rawLabel":"5年 8月","fiscalYear":"●令和5年度"},{"key":509,"label":"令和5年9月","value":195961,"reiwaYear":5,"month":9,"rawLabel":"5年 9月","fiscalYear":"●令和5年度"},{"key":510,"label":"令和5年10月","value":420901,"reiwaYear":5,"month":10,"rawLabel":"5年 10月","fiscalYear":"●令和5年度"},{"key":511,"label":"令和5年11月","value":561849,"reiwaYear":5,"month":11,"rawLabel":"5年 11月","fiscalYear":"●令和5年度"},{"key":512,"label":"令和5年12月","value":625487,"reiwaYear":5,"month":12,"rawLabel":"5年 12月","fiscalYear":"●令和5年度"},{"key":601,"label":"令和6年1月","value":406245,"reiwaYear":6,"month":1,"rawLabel":"6年 1月","fiscalYear":"●令和5年度"},{"key":602,"label":"令和6年2月","value":1638049,"reiwaYear":6,"month":2,"rawLabel":"6年 2月","fiscalYear":"●令和5年度"},{"key":606,"label":"令和6年6月","value":159277,"reiwaYear":6,"month":6,"rawLabel":"6年 6月","fiscalYear":"●令和5年度"},{"key":607,"label":"令和6年7月","value":620469,"reiwaYear":6,"month":7,"rawLabel":"6年 7月","fiscalYear":"●令和5年度"},{"key":608,"label":"令和6年8月","value":581388,"reiwaYear":6,"month":8,"rawLabel":"6年 8月","fiscalYear":"●令和6年度"},{"key":609,"label":"令和6年9月","value":497017,"reiwaYear":6,"month":9,"rawLabel":"6年 9月","fiscalYear":"●令和6年度"},{"key":610,"label":"令和6年10月","value":489163,"reiwaYear":6,"month":10,"rawLabel":"6年 10月","fiscalYear":"●令和6年度"},{"key":611,"label":"令和6年11月","value":833420,"reiwaYear":6,"month":11,"rawLabel":"6年 11月","fiscalYear":"●令和6年度"},{"key":612,"label":"令和6年12月","value":758129,"reiwaYear":6,"month":12,"rawLabel":"6年 12月","fiscalYear":"●令和6年度"},{"key":701,"label":"令和7年1月","value":594512,"reiwaYear":7,"month":1,"rawLabel":"7年 1月","fiscalYear":"●令和6年度"},{"key":702,"label":"令和7年2月","value":1652249,"reiwaYear":7,"month":2,"rawLabel":"7年 2月","fiscalYear":"●令和6年度"},{"key":706,"label":"令和7年6月","value":184138,"reiwaYear":7,"month":6,"rawLabel":"7年 6月","fiscalYear":"●令和6年度"},{"key":707,"label":"令和7年7月","value":492962,"reiwaYear":7,"month":7,"rawLabel":"7年 7月","fiscalYear":"●令和6年度"},{"key":708,"label":"令和7年8月","value":484928,"reiwaYear":7,"month":8,"rawLabel":"7年 8月","fiscalYear":"●令和7年度"},{"key":709,"label":"令和7年9月","value":705677,"reiwaYear":7,"month":9,"rawLabel":"7年 9月","fiscalYear":"●令和7年度"},{"key":710,"label":"令和7年10月","value":629090,"reiwaYear":7,"month":10,"rawLabel":"7年 10月","fiscalYear":"●令和7年度"},{"key":711,"label":"令和7年11月","value":811849,"reiwaYear":7,"month":11,"rawLabel":"7年 11月","fiscalYear":"●令和7年度"},{"key":712,"label":"令和7年12月","value":654836,"reiwaYear":7,"month":12,"rawLabel":"7年 12月","fiscalYear":"●令和7年度"},{"key":801,"label":"令和8年1月","value":531121,"reiwaYear":8,"month":1,"rawLabel":"8年 1月","fiscalYear":"●令和7年度"},{"key":802,"label":"令和8年2月","value":1243028,"reiwaYear":8,"month":2,"rawLabel":"8年 2月","fiscalYear":"●令和7年度"},{"key":807,"label":"令和8年7月","value":733581,"reiwaYear":8,"month":7,"rawLabel":"8年 7月","fiscalYear":"●令和7年度"},{"key":808,"label":"令和8年8月","value":678196,"reiwaYear":8,"month":8,"rawLabel":"8年 8月","fiscalYear":"●令和8年度"},{"key":809,"reiwaYear":8,"month":9,"label":"令和8年9月","rawLabel":"8年 9月","value":603826,"fiscalYear":"●令和8年度"}]},{"key":"治験","label":"治験","series":[{"key":606,"label":"令和6年6月","value":242880,"reiwaYear":6,"month":6,"rawLabel":"6年 6月","fiscalYear":"●令和5年度"},{"key":607,"label":"令和6年7月","value":693000,"reiwaYear":6,"month":7,"rawLabel":"6年 7月","fiscalYear":"●令和5年度"},{"key":608,"label":"令和6年8月","value":660000,"reiwaYear":6,"month":8,"rawLabel":"6年 8月","fiscalYear":"●令和6年度"},{"key":609,"label":"令和6年9月","value":132000,"reiwaYear":6,"month":9,"rawLabel":"6年 9月","fiscalYear":"●令和6年度"},{"key":610,"label":"令和6年10月","value":497200,"reiwaYear":6,"month":10,"rawLabel":"6年 10月","fiscalYear":"●令和6年度"},{"key":611,"label":"令和6年11月","value":132000,"reiwaYear":6,"month":11,"rawLabel":"6年 11月","fiscalYear":"●令和6年度"},{"key":612,"label":"令和6年12月","value":178200,"reiwaYear":6,"month":12,"rawLabel":"6年 12月","fiscalYear":"●令和6年度"},{"key":701,"label":"令和7年1月","value":178200,"reiwaYear":7,"month":1,"rawLabel":"7年 1月","fiscalYear":"●令和6年度"},{"key":702,"label":"令和7年2月","value":385000,"reiwaYear":7,"month":2,"rawLabel":"7年 2月","fiscalYear":"●令和6年度"},{"key":703,"label":"令和7年3月","value":377630,"reiwaYear":7,"month":3,"rawLabel":"7年 3月","fiscalYear":"●令和6年度"},{"key":704,"label":"令和7年4月","value":345829,"reiwaYear":7,"month":4,"rawLabel":"7年 4月","fiscalYear":"●令和6年度"},{"key":705,"label":"令和7年5月","value":165000,"reiwaYear":7,"month":5,"rawLabel":"7年 5月","fiscalYear":"●令和6年度"},{"key":706,"label":"令和7年6月","value":112200,"reiwaYear":7,"month":6,"rawLabel":"7年 6月","fiscalYear":"●令和6年度"},{"key":707,"label":"令和7年7月","value":242429,"reiwaYear":7,"month":7,"rawLabel":"7年 7月","fiscalYear":"●令和6年度"},{"key":708,"label":"令和7年8月","value":125829,"reiwaYear":7,"month":8,"rawLabel":"7年 8月","fiscalYear":"●令和7年度"},{"key":709,"label":"令和7年9月","value":231000,"reiwaYear":7,"month":9,"rawLabel":"7年 9月","fiscalYear":"●令和7年度"},{"key":710,"label":"令和7年10月","value":212300,"reiwaYear":7,"month":10,"rawLabel":"7年 10月","fiscalYear":"●令和7年度"},{"key":712,"label":"令和7年12月","value":111100,"reiwaYear":7,"month":12,"rawLabel":"7年 12月","fiscalYear":"●令和7年度"},{"key":801,"label":"令和8年1月","value":92400,"reiwaYear":8,"month":1,"rawLabel":"8年 1月","fiscalYear":"●令和7年度"},{"key":802,"label":"令和8年2月","value":92400,"reiwaYear":8,"month":2,"rawLabel":"8年 2月","fiscalYear":"●令和7年度"},{"key":803,"label":"令和8年3月","value":364100,"reiwaYear":8,"month":3,"rawLabel":"8年 3月","fiscalYear":"●令和7年度"},{"key":804,"label":"令和8年4月","value":86900,"reiwaYear":8,"month":4,"rawLabel":"8年 4月","fiscalYear":"●令和7年度"},{"key":806,"label":"令和8年6月","value":18700,"reiwaYear":8,"month":6,"rawLabel":"8年 6月","fiscalYear":"●令和7年度"},{"key":807,"label":"令和8年7月","value":101200,"reiwaYear":8,"month":7,"rawLabel":"8年 7月","fiscalYear":"●令和7年度"},{"key":809,"reiwaYear":8,"month":9,"label":"令和8年9月","rawLabel":"8年 9月","value":463430,"fiscalYear":"●令和8年度"}]},{"key":"OPE以外の売上","label":"OPE以外の売上","series":[{"key":605,"label":"令和6年5月","value":590860,"reiwaYear":6,"month":5,"rawLabel":"6年 5月","fiscalYear":"●令和5年度"},{"key":606,"label":"令和6年6月","value":1320840,"reiwaYear":6,"month":6,"rawLabel":"6年 6月","fiscalYear":"●令和5年度"},{"key":607,"label":"令和6年7月","value":1208400,"reiwaYear":6,"month":7,"rawLabel":"6年 7月","fiscalYear":"●令和5年度"},{"key":608,"label":"令和6年8月","value":1713431,"reiwaYear":6,"month":8,"rawLabel":"6年 8月","fiscalYear":"●令和6年度"},{"key":609,"label":"令和6年9月","value":2873530,"reiwaYear":6,"month":9,"rawLabel":"6年 9月","fiscalYear":"●令和6年度"},{"key":610,"label":"令和6年10月","value":1784340,"reiwaYear":6,"month":10,"rawLabel":"6年 10月","fiscalYear":"●令和6年度"},{"key":611,"label":"令和6年11月","value":2489890,"reiwaYear":6,"month":11,"rawLabel":"6年 11月","fiscalYear":"●令和6年度"},{"key":612,"label":"令和6年12月","value":1865900,"reiwaYear":6,"month":12,"rawLabel":"6年 12月","fiscalYear":"●令和6年度"},{"key":701,"label":"令和7年1月","value":1065100,"reiwaYear":7,"month":1,"rawLabel":"7年 1月","fiscalYear":"●令和6年度"},{"key":702,"label":"令和7年2月","value":1737700,"reiwaYear":7,"month":2,"rawLabel":"7年 2月","fiscalYear":"●令和6年度"},{"key":703,"label":"令和7年3月","value":1319140,"reiwaYear":7,"month":3,"rawLabel":"7年 3月","fiscalYear":"●令和6年度"},{"key":704,"label":"令和7年4月","value":2666270,"reiwaYear":7,"month":4,"rawLabel":"7年 4月","fiscalYear":"●令和6年度"},{"key":705,"label":"令和7年5月","value":1397750,"reiwaYear":7,"month":5,"rawLabel":"7年 5月","fiscalYear":"●令和6年度"},{"key":706,"label":"令和7年6月","value":2350980,"reiwaYear":7,"month":6,"rawLabel":"7年 6月","fiscalYear":"●令和6年度"},{"key":707,"label":"令和7年7月","value":601307,"reiwaYear":7,"month":7,"rawLabel":"7年 7月","fiscalYear":"●令和6年度"},{"key":708,"label":"令和7年8月","value":1839010,"reiwaYear":7,"month":8,"rawLabel":"7年 8月","fiscalYear":"●令和7年度"},{"key":709,"label":"令和7年9月","value":2393870,"reiwaYear":7,"month":9,"rawLabel":"7年 9月","fiscalYear":"●令和7年度"},{"key":710,"label":"令和7年10月","value":3476500,"reiwaYear":7,"month":10,"rawLabel":"7年 10月","fiscalYear":"●令和7年度"},{"key":711,"label":"令和7年11月","value":1916920,"reiwaYear":7,"month":11,"rawLabel":"7年 11月","fiscalYear":"●令和7年度"},{"key":712,"label":"令和7年12月","value":2478270,"reiwaYear":7,"month":12,"rawLabel":"7年 12月","fiscalYear":"●令和7年度"},{"key":801,"label":"令和8年1月","value":2999530,"reiwaYear":8,"month":1,"rawLabel":"8年 1月","fiscalYear":"●令和7年度"},{"key":802,"label":"令和8年2月","value":2756640,"reiwaYear":8,"month":2,"rawLabel":"8年 2月","fiscalYear":"●令和7年度"},{"key":803,"label":"令和8年3月","value":2692790,"reiwaYear":8,"month":3,"rawLabel":"8年 3月","fiscalYear":"●令和7年度"},{"key":804,"label":"令和8年4月","value":1795430,"reiwaYear":8,"month":4,"rawLabel":"8年 4月","fiscalYear":"●令和7年度"},{"key":805,"label":"令和8年5月","value":3649760,"reiwaYear":8,"month":5,"rawLabel":"8年 5月","fiscalYear":"●令和7年度"},{"key":806,"label":"令和8年6月","value":3415952,"reiwaYear":8,"month":6,"rawLabel":"8年 6月","fiscalYear":"●令和7年度"},{"key":807,"label":"令和8年7月","value":2763025,"reiwaYear":8,"month":7,"rawLabel":"8年 7月","fiscalYear":"●令和7年度"},{"key":808,"label":"令和8年8月","value":2291900,"reiwaYear":8,"month":8,"rawLabel":"8年 8月","fiscalYear":"●令和8年度"},{"key":809,"reiwaYear":8,"month":9,"label":"令和8年9月","rawLabel":"8年 9月","value":674874,"fiscalYear":"●令和8年度"}]},{"key":"八街市健診","label":"八街市健診","series":[{"key":710,"label":"令和7年10月","value":571900,"reiwaYear":7,"month":10,"rawLabel":"7年 10月","fiscalYear":"●令和7年度"}]}],"months":[{"key":408,"label":"令和4年8月","sales":6141415,"insuranceSales":5142914,"patients":950,"dailyPatients":null,"days":null,"unitPrice":6465,"assessment":null,"requiredSales":null,"requiredInsuranceSales":null,"targetPatientsMonth":null,"targetPatientsDay":null,"salesVariance":null,"shortfallMonth":null,"shortfallDay":null},{"key":409,"label":"令和4年9月","sales":6542215,"insuranceSales":5030782,"patients":918,"dailyPatients":null,"days":null,"unitPrice":7127,"assessment":null,"requiredSales":null,"requiredInsuranceSales":null,"targetPatientsMonth":null,"targetPatientsDay":null,"salesVariance":null,"shortfallMonth":null,"shortfallDay":null},{"key":410,"label":"令和4年10月","sales":7592747,"insuranceSales":5524136,"patients":1042,"dailyPatients":null,"days":null,"unitPrice":7287,"assessment":null,"requiredSales":null,"requiredInsuranceSales":null,"targetPatientsMonth":null,"targetPatientsDay":null,"salesVariance":null,"shortfallMonth":null,"shortfallDay":null},{"key":411,"label":"令和4年11月","sales":8844191,"insuranceSales":5471327,"patients":1054,"dailyPatients":null,"days":null,"unitPrice":8391,"assessment":null,"requiredSales":null,"requiredInsuranceSales":null,"targetPatientsMonth":null,"targetPatientsDay":null,"salesVariance":null,"shortfallMonth":null,"shortfallDay":null},{"key":412,"label":"令和4年12月","sales":7603705,"insuranceSales":5504187,"patients":1049,"dailyPatients":null,"days":null,"unitPrice":7249,"assessment":null,"requiredSales":null,"requiredInsuranceSales":null,"targetPatientsMonth":null,"targetPatientsDay":null,"salesVariance":null,"shortfallMonth":null,"shortfallDay":null},{"key":501,"label":"令和5年1月","sales":6851536,"insuranceSales":5339868,"patients":1009,"dailyPatients":null,"days":null,"unitPrice":6790,"assessment":null,"requiredSales":null,"requiredInsuranceSales":null,"targetPatientsMonth":null,"targetPatientsDay":null,"salesVariance":null,"shortfallMonth":null,"shortfallDay":null},{"key":502,"label":"令和5年2月","sales":6531211,"insuranceSales":5525381,"patients":985,"dailyPatients":null,"days":null,"unitPrice":6631,"assessment":null,"requiredSales":null,"requiredInsuranceSales":null,"targetPatientsMonth":null,"targetPatientsDay":null,"salesVariance":null,"shortfallMonth":null,"shortfallDay":null},{"key":503,"label":"令和5年3月","sales":8166636,"insuranceSales":6785720,"patients":1212,"dailyPatients":null,"days":null,"unitPrice":6738,"assessment":null,"requiredSales":null,"requiredInsuranceSales":null,"targetPatientsMonth":null,"targetPatientsDay":null,"salesVariance":null,"shortfallMonth":null,"shortfallDay":null},{"key":504,"label":"令和5年4月","sales":17540111,"insuranceSales":16255464,"patients":1973,"dailyPatients":null,"days":null,"unitPrice":8890,"assessment":null,"requiredSales":null,"requiredInsuranceSales":null,"targetPatientsMonth":null,"targetPatientsDay":null,"salesVariance":null,"shortfallMonth":null,"shortfallDay":null},{"key":505,"label":"令和5年5月","sales":18340539,"insuranceSales":16919855,"patients":1992,"dailyPatients":null,"days":null,"unitPrice":9207,"assessment":null,"requiredSales":null,"requiredInsuranceSales":null,"targetPatientsMonth":null,"targetPatientsDay":null,"salesVariance":null,"shortfallMonth":null,"shortfallDay":null},{"key":506,"label":"令和5年6月","sales":19735449,"insuranceSales":17921598,"patients":2255,"dailyPatients":null,"days":null,"unitPrice":8752,"assessment":null,"requiredSales":null,"requiredInsuranceSales":null,"targetPatientsMonth":null,"targetPatientsDay":null,"salesVariance":null,"shortfallMonth":null,"shortfallDay":null},{"key":507,"label":"令和5年7月","sales":20029822,"insuranceSales":18147717,"patients":2226,"dailyPatients":null,"days":null,"unitPrice":8998,"assessment":null,"requiredSales":null,"requiredInsuranceSales":null,"targetPatientsMonth":null,"targetPatientsDay":null,"salesVariance":null,"shortfallMonth":null,"shortfallDay":null},{"key":508,"label":"令和5年8月","sales":18523598,"insuranceSales":16636531,"patients":1933,"dailyPatients":null,"days":null,"unitPrice":9583,"assessment":null,"requiredSales":null,"requiredInsuranceSales":null,"targetPatientsMonth":null,"targetPatientsDay":null,"salesVariance":null,"shortfallMonth":null,"shortfallDay":null},{"key":509,"label":"令和5年9月","sales":20710021,"insuranceSales":18738771,"patients":2163,"dailyPatients":null,"days":null,"unitPrice":9575,"assessment":null,"requiredSales":null,"requiredInsuranceSales":null,"targetPatientsMonth":null,"targetPatientsDay":null,"salesVariance":null,"shortfallMonth":null,"shortfallDay":null},{"key":510,"label":"令和5年10月","sales":25103313,"insuranceSales":20375771,"patients":2359,"dailyPatients":null,"days":null,"unitPrice":10642,"assessment":null,"requiredSales":null,"requiredInsuranceSales":null,"targetPatientsMonth":null,"targetPatientsDay":null,"salesVariance":null,"shortfallMonth":null,"shortfallDay":null},{"key":511,"label":"令和5年11月","sales":24685019,"insuranceSales":19801684,"patients":2261,"dailyPatients":null,"days":null,"unitPrice":10918,"assessment":null,"requiredSales":null,"requiredInsuranceSales":null,"targetPatientsMonth":null,"targetPatientsDay":null,"salesVariance":null,"shortfallMonth":null,"shortfallDay":null},{"key":512,"label":"令和5年12月","sales":24973013,"insuranceSales":22474380,"patients":2519,"dailyPatients":null,"days":null,"unitPrice":9914,"assessment":null,"requiredSales":null,"requiredInsuranceSales":null,"targetPatientsMonth":null,"targetPatientsDay":null,"salesVariance":null,"shortfallMonth":null,"shortfallDay":null},{"key":601,"label":"令和6年1月","sales":23771187,"insuranceSales":21790527,"patients":2410,"dailyPatients":null,"days":null,"unitPrice":9864,"assessment":null,"requiredSales":null,"requiredInsuranceSales":null,"targetPatientsMonth":null,"targetPatientsDay":null,"salesVariance":null,"shortfallMonth":null,"shortfallDay":null},{"key":602,"label":"令和6年2月","sales":24598021,"insuranceSales":20913390,"patients":2368,"dailyPatients":null,"days":null,"unitPrice":10388,"assessment":null,"requiredSales":null,"requiredInsuranceSales":null,"targetPatientsMonth":null,"targetPatientsDay":null,"salesVariance":null,"shortfallMonth":null,"shortfallDay":null},{"key":603,"label":"令和6年3月","sales":22155994,"insuranceSales":20406389,"patients":2348,"dailyPatients":null,"days":null,"unitPrice":9436,"assessment":null,"requiredSales":null,"requiredInsuranceSales":null,"targetPatientsMonth":null,"targetPatientsDay":null,"salesVariance":null,"shortfallMonth":null,"shortfallDay":null},{"key":604,"label":"令和6年4月","sales":22313156,"insuranceSales":21039922,"patients":2420,"dailyPatients":null,"days":null,"unitPrice":9220,"assessment":null,"requiredSales":null,"requiredInsuranceSales":null,"targetPatientsMonth":null,"targetPatientsDay":null,"salesVariance":null,"shortfallMonth":null,"shortfallDay":null},{"key":605,"label":"令和6年5月","sales":36938876,"insuranceSales":20970513,"patients":2514,"dailyPatients":null,"days":null,"unitPrice":14693,"assessment":null,"requiredSales":null,"requiredInsuranceSales":null,"targetPatientsMonth":null,"targetPatientsDay":null,"salesVariance":null,"shortfallMonth":null,"shortfallDay":null},{"key":606,"label":"令和6年6月","sales":34714831,"insuranceSales":19023417,"patients":2426,"dailyPatients":null,"days":null,"unitPrice":14309,"assessment":null,"requiredSales":null,"requiredInsuranceSales":null,"targetPatientsMonth":null,"targetPatientsDay":null,"salesVariance":null,"shortfallMonth":null,"shortfallDay":null},{"key":607,"label":"令和6年7月","sales":62923740,"insuranceSales":41322421,"patients":6475,"dailyPatients":null,"days":null,"unitPrice":9718,"assessment":null,"requiredSales":null,"requiredInsuranceSales":null,"targetPatientsMonth":null,"targetPatientsDay":null,"salesVariance":null,"shortfallMonth":null,"shortfallDay":null},{"key":608,"label":"令和6年8月","sales":61527258,"insuranceSales":34891620,"patients":5297,"dailyPatients":null,"days":null,"unitPrice":11615,"assessment":null,"requiredSales":null,"requiredInsuranceSales":null,"targetPatientsMonth":null,"targetPatientsDay":null,"salesVariance":null,"shortfallMonth":null,"shortfallDay":null},{"key":609,"label":"令和6年9月","sales":62229090,"insuranceSales":36468257,"patients":5616,"dailyPatients":null,"days":null,"unitPrice":11081,"assessment":null,"requiredSales":null,"requiredInsuranceSales":null,"targetPatientsMonth":null,"targetPatientsDay":null,"salesVariance":null,"shortfallMonth":null,"shortfallDay":null},{"key":610,"label":"令和6年10月","sales":72414298,"insuranceSales":40906233,"patients":6407,"dailyPatients":null,"days":null,"unitPrice":11302,"assessment":null,"requiredSales":null,"requiredInsuranceSales":null,"targetPatientsMonth":null,"targetPatientsDay":null,"salesVariance":null,"shortfallMonth":null,"shortfallDay":null},{"key":611,"label":"令和6年11月","sales":85217532,"insuranceSales":41556760,"patients":6427,"dailyPatients":null,"days":null,"unitPrice":13259,"assessment":null,"requiredSales":null,"requiredInsuranceSales":null,"targetPatientsMonth":null,"targetPatientsDay":null,"salesVariance":null,"shortfallMonth":null,"shortfallDay":null},{"key":612,"label":"令和6年12月","sales":75717864,"insuranceSales":47953920,"patients":7435,"dailyPatients":null,"days":null,"unitPrice":10184,"assessment":null,"requiredSales":null,"requiredInsuranceSales":null,"targetPatientsMonth":null,"targetPatientsDay":null,"salesVariance":null,"shortfallMonth":null,"shortfallDay":null},{"key":701,"label":"令和7年1月","sales":66400836,"insuranceSales":41315906,"patients":6401,"dailyPatients":null,"days":null,"unitPrice":10374,"assessment":null,"requiredSales":null,"requiredInsuranceSales":null,"targetPatientsMonth":null,"targetPatientsDay":null,"salesVariance":null,"shortfallMonth":null,"shortfallDay":null},{"key":702,"label":"令和7年2月","sales":70883310,"insuranceSales":39106386,"patients":5885,"dailyPatients":null,"days":null,"unitPrice":12045,"assessment":null,"requiredSales":null,"requiredInsuranceSales":null,"targetPatientsMonth":null,"targetPatientsDay":null,"salesVariance":null,"shortfallMonth":null,"shortfallDay":null},{"key":703,"label":"令和7年3月","sales":76338219,"insuranceSales":42235602,"patients":6336,"dailyPatients":null,"days":null,"unitPrice":12048,"assessment":null,"requiredSales":null,"requiredInsuranceSales":null,"targetPatientsMonth":null,"targetPatientsDay":null,"salesVariance":null,"shortfallMonth":null,"shortfallDay":null},{"key":704,"label":"令和7年4月","sales":68861014,"insuranceSales":39197453,"patients":5824,"dailyPatients":null,"days":null,"unitPrice":11824,"assessment":null,"requiredSales":null,"requiredInsuranceSales":null,"targetPatientsMonth":null,"targetPatientsDay":null,"salesVariance":null,"shortfallMonth":null,"shortfallDay":null},{"key":705,"label":"令和7年5月","sales":68404812,"insuranceSales":39441710,"patients":5784,"dailyPatients":null,"days":null,"unitPrice":11827,"assessment":null,"requiredSales":null,"requiredInsuranceSales":null,"targetPatientsMonth":null,"targetPatientsDay":null,"salesVariance":null,"shortfallMonth":null,"shortfallDay":null},{"key":706,"label":"令和7年6月","sales":70284021,"insuranceSales":40057527,"patients":5850,"dailyPatients":null,"days":null,"unitPrice":12014,"assessment":null,"requiredSales":null,"requiredInsuranceSales":null,"targetPatientsMonth":null,"targetPatientsDay":null,"salesVariance":null,"shortfallMonth":null,"shortfallDay":null},{"key":707,"label":"令和7年7月","sales":76461879,"insuranceSales":42820940,"patients":6318,"dailyPatients":null,"days":null,"unitPrice":12102,"assessment":null,"requiredSales":null,"requiredInsuranceSales":null,"targetPatientsMonth":null,"targetPatientsDay":null,"salesVariance":null,"shortfallMonth":null,"shortfallDay":null},{"key":708,"label":"令和7年8月","sales":75898804,"insuranceSales":39438314,"patients":5563,"dailyPatients":null,"days":null,"unitPrice":13644,"assessment":null,"requiredSales":null,"requiredInsuranceSales":null,"targetPatientsMonth":null,"targetPatientsDay":null,"salesVariance":null,"shortfallMonth":null,"shortfallDay":null},{"key":709,"label":"令和7年9月","sales":82382155,"insuranceSales":41730195,"patients":5962,"dailyPatients":null,"days":null,"unitPrice":13818,"assessment":null,"requiredSales":null,"requiredInsuranceSales":null,"targetPatientsMonth":null,"targetPatientsDay":null,"salesVariance":null,"shortfallMonth":null,"shortfallDay":null},{"key":710,"label":"令和7年10月","sales":96112763,"insuranceSales":45043087,"patients":6555,"dailyPatients":null,"days":null,"unitPrice":14663,"assessment":null,"requiredSales":null,"requiredInsuranceSales":null,"targetPatientsMonth":null,"targetPatientsDay":null,"salesVariance":null,"shortfallMonth":null,"shortfallDay":null},{"key":711,"label":"令和7年11月","sales":94938812,"insuranceSales":47340734,"patients":7041,"dailyPatients":null,"days":null,"unitPrice":13484,"assessment":null,"requiredSales":null,"requiredInsuranceSales":null,"targetPatientsMonth":null,"targetPatientsDay":null,"salesVariance":null,"shortfallMonth":null,"shortfallDay":null},{"key":712,"label":"令和7年12月","sales":92404279,"insuranceSales":46031058,"patients":6607,"dailyPatients":null,"days":null,"unitPrice":13986,"assessment":null,"requiredSales":null,"requiredInsuranceSales":null,"targetPatientsMonth":null,"targetPatientsDay":null,"salesVariance":null,"shortfallMonth":null,"shortfallDay":null},{"key":801,"label":"令和8年1月","sales":84232188,"insuranceSales":45692091,"patients":6446,"dailyPatients":null,"days":null,"unitPrice":13067,"assessment":null,"requiredSales":null,"requiredInsuranceSales":null,"targetPatientsMonth":null,"targetPatientsDay":null,"salesVariance":null,"shortfallMonth":null,"shortfallDay":null},{"key":802,"label":"令和8年2月","sales":80594188,"insuranceSales":45103412,"patients":6620,"dailyPatients":null,"days":null,"unitPrice":12174,"assessment":null,"requiredSales":null,"requiredInsuranceSales":null,"targetPatientsMonth":null,"targetPatientsDay":null,"salesVariance":null,"shortfallMonth":null,"shortfallDay":null},{"key":803,"label":"令和8年3月","sales":83283272,"insuranceSales":45128433,"patients":6372,"dailyPatients":null,"days":null,"unitPrice":13070,"assessment":null,"requiredSales":null,"requiredInsuranceSales":null,"targetPatientsMonth":null,"targetPatientsDay":null,"salesVariance":null,"shortfallMonth":null,"shortfallDay":null},{"key":804,"label":"令和8年4月","sales":74107683,"insuranceSales":41391038,"patients":5748,"dailyPatients":null,"days":null,"unitPrice":12893,"assessment":null,"requiredSales":null,"requiredInsuranceSales":null,"targetPatientsMonth":null,"targetPatientsDay":null,"salesVariance":null,"shortfallMonth":null,"shortfallDay":null},{"key":805,"label":"令和8年5月","sales":74657892,"insuranceSales":39602773,"patients":5398,"dailyPatients":null,"days":null,"unitPrice":13831,"assessment":null,"requiredSales":null,"requiredInsuranceSales":null,"targetPatientsMonth":null,"targetPatientsDay":null,"salesVariance":null,"shortfallMonth":null,"shortfallDay":null},{"key":806,"label":"令和8年6月","sales":81718687,"insuranceSales":40735834,"patients":5967,"dailyPatients":null,"days":null,"unitPrice":13695,"assessment":null,"requiredSales":null,"requiredInsuranceSales":null,"targetPatientsMonth":null,"targetPatientsDay":null,"salesVariance":null,"shortfallMonth":null,"shortfallDay":null},{"key":807,"label":"令和8年7月","sales":91991908,"insuranceSales":44361851,"patients":6069,"dailyPatients":null,"days":null,"unitPrice":15158,"assessment":null,"requiredSales":null,"requiredInsuranceSales":null,"targetPatientsMonth":null,"targetPatientsDay":null,"salesVariance":null,"shortfallMonth":null,"shortfallDay":null},{"key":808,"label":"令和8年8月","sales":74584992,"insuranceSales":39267864,"patients":5199,"dailyPatients":null,"days":null,"unitPrice":14346,"assessment":null,"requiredSales":null,"requiredInsuranceSales":null,"targetPatientsMonth":null,"targetPatientsDay":null,"salesVariance":null,"shortfallMonth":null,"shortfallDay":null},{"key":809,"label":"令和8年9月","sales":87898419,"insuranceSales":43771017,"patients":5834,"dailyPatients":null,"days":null,"unitPrice":15067,"assessment":null,"requiredSales":null,"requiredInsuranceSales":null,"targetPatientsMonth":null,"targetPatientsDay":null,"salesVariance":null,"shortfallMonth":null,"shortfallDay":null}],"name":"総合計","simpleMode":false,"hideRequiredChart":true,"hideShortfall":true,"hidePatientUnit":true,"hidePatientUnitCharts":true,"requiredTotalOnly":true,"insuranceChartTitle":"保険診療売上","insuranceSeriesLabel":"当期保険診療","insuranceChartCap":"青棒=当期保険金額合計 / オレンジ棒=前年同月","requiredInsuranceLabel":"保険だけの必要売上高","requiredTotalLabel":"必要売上高（保険＋自費）","salesTitle":"月次売上（保険＋自費）","shortfallDailyLabel":"不足患者数（合算）"}}};
+    const COLORS = {
+      "湖北台診療所": "kohoku",
+      "のがたクリニック": "nogata",
+      "みんなの血管外科池袋": "minke",
+      "湯沢クリニック": "yuzawa",
+      "総合計": "total",
+      "晃正会": "koseikai",
+    };
+    const COLOR_HEX = {
+      "湖北台診療所": "#059669",
+      "のがたクリニック": "#d97706",
+      "みんなの血管外科池袋": "#7c3aed",
+      "湯沢クリニック": "#0891b2",
+      "総合計": "#1d4ed8",
+      "晃正会": "#be185d",
+    };
+    let activeClinic = DATA.clinicOrder[0];
+    let activeKey = DATA.timelineKeys[DATA.timelineKeys.length - 1];
+    let showPrevYear = false;
+    let showPrev2Year = false;
+    let showPrev3Year = true;
+    const chartRegistry = {};
+    const CHART_COLORS = {
+      current: "#2563eb",
+      previous: "#f97316",
+      previous2: "#ec4899",
+      previous3: "#a855f7",
+      required: "#64748b",
+    };
+
+    function yen(v) {
+      if (v == null || v === "") return "";
+      const sign = v < 0 ? "-" : "";
+      return sign + Math.round(Math.abs(v)).toLocaleString("ja-JP") + "円";
+    }
+    function count(v, unit) {
+      if (v == null || v === "") return "";
+      const n = Number.isInteger(v) ? v : Math.round(v * 10) / 10;
+      return n.toLocaleString("ja-JP") + unit;
+    }
+    function diffYen(v) {
+      if (v == null || v === "") return "";
+      return (v >= 0 ? "+" : "") + yen(v);
+    }
+    function diffCount(v, unit) {
+      if (v == null || v === "") return "";
+      const n = Number.isInteger(v) ? v : Math.round(v * 10) / 10;
+      return (n >= 0 ? "+" : "") + n.toLocaleString("ja-JP") + unit;
+    }
+    function toneDiff(v) {
+      if (v == null || v === "") return "empty";
+      if (v > 0) return "up";
+      if (v < 0) return "down";
+      return "neutral";
+    }
+    function toneValue(v) {
+      if (v == null || v === "") return "empty";
+      if (v < 0) return "down";
+      return "neutral";
+    }
+    function mainVal(v, formatted) {
+      const text = formatted || "—";
+      const tone = v == null || formatted === "" ? "" : toneValue(v);
+      return `<div class="kpi-value${tone ? " " + tone : ""}">${text}</div>`;
+    }
+    function prevYearKey(key) {
+      const ry = Math.floor(key / 100);
+      const rm = key % 100;
+      return (ry - 1) * 100 + rm;
+    }
+    function fiscalStartMonth(clinic) {
+      return clinic === "湯沢クリニック" || clinic === "晃正会" ? 7 : 8;
+    }
+    function fiscalYearOf(key, clinic) {
+      const ry = Math.floor(key / 100);
+      const rm = key % 100;
+      const start = fiscalStartMonth(clinic);
+      return rm >= start ? ry : ry - 1;
+    }
+    function fiscalRangeKeys(fiscalYear, clinic) {
+      const start = fiscalStartMonth(clinic);
+      const endMonth = start === 1 ? 12 : start - 1;
+      const endYear = start === 1 ? fiscalYear : fiscalYear + 1;
+      const keys = [];
+      let y = fiscalYear;
+      let m = start;
+      while (true) {
+        keys.push(y * 100 + m);
+        if (y === endYear && m === endMonth) break;
+        m += 1;
+        if (m > 12) { m = 1; y += 1; }
+      }
+      return keys;
+    }
+    function fiscalPeriodLabel(fiscalYear, clinic) {
+      const start = fiscalStartMonth(clinic);
+      const endMonth = start - 1;
+      return `令和${fiscalYear}年度（${start}月〜翌${endMonth}月）`;
+    }
+    function fillMonthSelect(sel, clinic) {
+      const months = (DATA.clinics[clinic] && DATA.clinics[clinic].months) || [];
+      const start = fiscalStartMonth(clinic);
+      const endMonth = start === 1 ? 12 : start - 1;
+      let html = "";
+      let currentFy = null;
+      months.forEach((m) => {
+        const fy = fiscalYearOf(m.key, clinic);
+        if (fy !== currentFy) {
+          if (currentFy !== null) html += "</optgroup>";
+          currentFy = fy;
+          html += `<optgroup label="令和${fy}年度（${start}月〜翌${endMonth}月）">`;
+        }
+        html += `<option value="${m.key}">${m.label}</option>`;
+      });
+      if (currentFy !== null) html += "</optgroup>";
+      sel.innerHTML = html;
+    }
+    function buildFiscalTotal(clinic, key) {
+      if (key == null) return null;
+      const fy = fiscalYearOf(key, clinic);
+      const months = DATA.clinics[clinic].months || [];
+      const map = new Map(months.map((m) => [m.key, m]));
+      const fullRange = fiscalRangeKeys(fy, clinic);
+      const elapsedRange = fullRange.filter((k) => k <= key);
+      let sales = 0;
+      let hasSales = false;
+      let elapsedCount = 0;
+      let firstKey = null;
+      let lastKey = null;
+      elapsedRange.forEach((k) => {
+        const rec = map.get(k);
+        if (!rec || rec.sales == null) return;
+        sales += rec.sales;
+        hasSales = true;
+        elapsedCount += 1;
+        if (firstKey == null) firstKey = k;
+        lastKey = k;
+      });
+      const covered = hasSales
+        ? (firstKey === lastKey
+          ? shortMonthLabel(map.get(firstKey).label)
+          : `${shortMonthLabel(map.get(firstKey).label)}〜${shortMonthLabel(map.get(lastKey).label)}`)
+        : "";
+      return {
+        fy,
+        label: fiscalPeriodLabel(fy, clinic),
+        sales: hasSales ? sales : null,
+        elapsedCount,
+        avgSales: hasSales && elapsedCount ? sales / elapsedCount : null,
+        covered,
+      };
+    }
+    function renderFiscalSummary(clinic, key) {
+      const total = buildFiscalTotal(clinic, key);
+      if (!total) {
+        return `<div class="fiscal-card"><div class="fiscal-label">年度合計</div><div class="fiscal-period">—</div><div class="fiscal-value">—</div></div>`;
+      }
+      const covered = total.covered ? `集計 ${total.covered}` : "データなし";
+      return `
+        <div class="fiscal-card">
+          <div class="fiscal-block">
+            <div class="fiscal-label">年度合計</div>
+            <div class="fiscal-period">${total.label} ／ ${covered}</div>
+            <div class="fiscal-value">${total.sales != null ? yen(total.sales) : "—"}</div>
+          </div>
+        </div>`;
+    }
+    function monthByKey(clinic, key) {
+      return (DATA.clinics[clinic].months || []).find((m) => m.key === key) || null;
+    }
+    function shortMonthLabel(label) {
+      if (!label) return "";
+      const m = String(label).match(/令和(\d+)年(\d+)月/);
+      if (!m) return label;
+      return `R${m[1]}.${m[2]}`;
+    }
+    function yenTick(v) {
+      const n = Math.abs(v);
+      if (n >= 100000000) return (v / 100000000).toFixed(1).replace(/\.0$/, "") + "億";
+      if (n >= 10000) return Math.round(v / 10000).toLocaleString("ja-JP") + "万";
+      return Math.round(v).toLocaleString("ja-JP");
+    }
+    const SELF_PAY_COLOR_MAP = {
+      "シルガード": "#2563eb",
+      "我孫子市健診": "#06b6d4",
+      "中野区区民健診": "#0891b2",
+      "企業健診": "#10b981",
+      "インフルエンザ": "#f59e0b",
+      "治験": "#dc2626",
+      "その他": "#94a3b8",
+      "OPE以外の収入": "#7c3aed",
+      "OPE以外の売上": "#7c3aed",
+      "八街市健診": "#0d9488",
+      "自費金額": "#be185d",
+    };
+    function selfPayColor(label, index) {
+      if (SELF_PAY_COLOR_MAP[label]) return SELF_PAY_COLOR_MAP[label];
+      const fallback = ["#0ea5e9", "#14b8a6", "#84cc16", "#eab308", "#f97316", "#ec4899"];
+      return fallback[index % fallback.length];
+    }
+    function manYenLabel(v) {
+      if (v == null || !Number.isFinite(v) || v === 0) return "";
+      const man = v / 10000;
+      return Math.abs(man) >= 100
+        ? Math.round(man).toLocaleString("ja-JP")
+        : (Math.round(man * 10) / 10).toLocaleString("ja-JP", { maximumFractionDigits: 1 });
+    }
+    const selfPayTotalLabelsPlugin = {
+      id: "selfPayTotalLabels",
+      afterDatasetsDraw(chart) {
+        const { ctx, data, chartArea } = chart;
+        if (!data.datasets.length) return;
+        const meta0 = chart.getDatasetMeta(0);
+        if (!meta0 || !meta0.data.length) return;
+        ctx.save();
+        ctx.textAlign = "center";
+        ctx.textBaseline = "bottom";
+        ctx.fillStyle = "#334155";
+        ctx.font = "600 10px 'Segoe UI', 'Hiragino Sans', 'Yu Gothic UI', sans-serif";
+        meta0.data.forEach((bar, i) => {
+          let total = 0;
+          data.datasets.forEach((ds, di) => {
+            const meta = chart.getDatasetMeta(di);
+            if (meta.hidden) return;
+            const v = ds.data[i];
+            if (v != null && Number.isFinite(v)) total += v;
+          });
+          const label = manYenLabel(total);
+          if (!label) return;
+          const x = bar.x;
+          let y = bar.base;
+          data.datasets.forEach((_, di) => {
+            const meta = chart.getDatasetMeta(di);
+            if (meta.hidden) return;
+            const el = meta.data[i];
+            if (el && el.y < y) y = el.y;
+          });
+          const drawY = Math.max(chartArea.top + 10, y - 4);
+          ctx.fillText(label, x, drawY);
+        });
+        ctx.restore();
+      },
+    };
+    function monthKeysForYearsBack(clinic, selectedKey, yearsBack) {
+      return fiscalRangeKeys(fiscalYearOf(selectedKey, clinic), clinic).map((k) => shiftYearKey(k, yearsBack || 0));
+    }
+    function selectMonth(key) {
+      key = Number(key);
+      if (!key) return;
+      const months = (DATA.clinics[activeClinic] && DATA.clinics[activeClinic].months) || [];
+      const inSales = months.some((m) => m.key === key);
+      const inPl = typeof PL !== "undefined" && PL.clinics && PL.clinics[activeClinic] && PL.clinics[activeClinic][String(key)];
+      if (!inSales && !inPl) return;
+      const same = key === activeKey;
+      const sameFy = fiscalYearOf(key, activeClinic) === fiscalYearOf(activeKey, activeClinic);
+      activeKey = key;
+      document.querySelectorAll("select[id^='month-select-']").forEach((sel) => {
+        if ([...sel.options].some((o) => Number(o.value) === key)) sel.value = String(key);
+      });
+      if (!same) refresh({ keepCharts: sameFy });
+      const panel = document.getElementById("panel-" + activeClinic);
+      if (!panel) return;
+      panel.querySelectorAll(".kpi-card, .cost-card").forEach((el) => {
+        el.classList.remove("month-flash");
+        void el.offsetWidth;
+        el.classList.add("month-flash");
+      });
+    }
+    function barChartClick(evt, elements, chart) {
+      const hits = chart.getElementsAtEventForMode(evt, "nearest", { intersect: true }, true);
+      if (!hits.length) return;
+      const hit = hits[0];
+      const ds = (chart.data.datasets && chart.data.datasets[hit.datasetIndex]) || {};
+      let key = null;
+      if (ds.monthKeys && ds.monthKeys[hit.index] != null) key = ds.monthKeys[hit.index];
+      else {
+        const keys = monthKeysForYearsBack(activeClinic, activeKey, ds.yearsBack || 0);
+        key = keys[hit.index];
+      }
+      if (key) selectMonth(key);
+    }
+    function barChartHover(evt, elements, chart) {
+      const hits = chart ? chart.getElementsAtEventForMode(evt, "nearest", { intersect: true }, true) : elements;
+      const el = evt && evt.native && evt.native.target;
+      if (el && el.style) el.style.cursor = hits && hits.length ? "pointer" : "default";
+    }
+    function makeStackedBarChart(canvas, labels, datasets, tickFn) {
+      return new Chart(canvas, {
+        type: "bar",
+        data: { labels, datasets },
+        plugins: [selfPayTotalLabelsPlugin],
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          animation: false,
+          layout: { padding: { top: 18 } },
+          onClick: barChartClick,
+          onHover: barChartHover,
+          interaction: { mode: "index", intersect: false },
+          plugins: {
+            legend: { position: "bottom", labels: { boxWidth: 12, font: { size: 11 } } },
+            tooltip: {
+              callbacks: {
+                label: (ctx) => `${ctx.dataset.label}: ${tickFn(ctx.parsed.y)}`,
+                footer: (items) => {
+                  const total = items.reduce((s, it) => s + (it.parsed.y || 0), 0);
+                  const label = manYenLabel(total);
+                  return label ? `合計: ${label}` : "";
+                },
+              },
+            },
+          },
+          scales: {
+            x: {
+              stacked: true,
+              ticks: { maxRotation: 0, minRotation: 0, autoSkip: false, font: { size: 10 } },
+              grid: { display: false },
+            },
+            y: {
+              stacked: true,
+              beginAtZero: true,
+              ticks: { callback: (v) => tickFn(v), font: { size: 10 } },
+              grid: { color: "#eef2f7" },
+            },
+          },
+        },
+      });
+    }
+    function destroyClinicCharts(clinic) {
+      const bag = chartRegistry[clinic];
+      if (!bag) return;
+      Object.values(bag).forEach((c) => c && c.destroy());
+      delete chartRegistry[clinic];
+    }
+    function shiftYearKey(key, yearsBack) {
+      return key - yearsBack * 100;
+    }
+    function fiscalAxisLabel(key) {
+      return `${key % 100}月`;
+    }
+    function valueAtMap(map, key, field) {
+      const rec = map.get(key);
+      if (!rec) return null;
+      const v = rec[field];
+      return v == null ? null : v;
+    }
+    function buildFiscalCompareSeries(clinic, field, selectedKey) {
+      const fy = fiscalYearOf(selectedKey, clinic);
+      const keys = fiscalRangeKeys(fy, clinic);
+      const map = new Map((DATA.clinics[clinic].months || []).map((m) => [m.key, m]));
+      const labels = keys.map((k) => fiscalAxisLabel(k));
+      const current = keys.map((k) => valueAtMap(map, k, field));
+      const previous = keys.map((k) => valueAtMap(map, shiftYearKey(k, 1), field));
+      const previous2 = keys.map((k) => valueAtMap(map, shiftYearKey(k, 2), field));
+      const previous3 = keys.map((k) => valueAtMap(map, shiftYearKey(k, 3), field));
+      return { labels, keys, current, previous, previous2, previous3, fy, periodLabel: fiscalPeriodLabel(fy, clinic) };
+    }
+    function buildSelfPayStack(clinic, selectedKey) {
+      const parts = DATA.clinics[clinic].selfPayParts || [];
+      const fy = fiscalYearOf(selectedKey, clinic);
+      const keys = fiscalRangeKeys(fy, clinic);
+      const labels = keys.map((k) => fiscalAxisLabel(k));
+      const datasets = parts.map((part, i) => {
+        const map = new Map((part.series || []).map((p) => [p.key, p.value]));
+        return {
+          label: part.label,
+          data: keys.map((k) => map.has(k) ? map.get(k) : 0),
+          backgroundColor: selfPayColor(part.label, i),
+          borderWidth: 0,
+          stack: "selfpay",
+          monthKeys: keys,
+          yearsBack: 0,
+        };
+      });
+      return { labels, datasets, fy, periodLabel: fiscalPeriodLabel(fy, clinic) };
+    }
+    function makeCompareBarChart(canvas, labels, seriesList, tickFn) {
+      // seriesList: [{label, data, color}] left-to-right order; current should be last
+      const datasets = seriesList.map((s) => ({
+        label: s.label,
+        data: s.data,
+        backgroundColor: s.color + (s.alpha || "cc"),
+        borderColor: s.color,
+        borderWidth: 1,
+        borderRadius: 3,
+        monthKeys: s.monthKeys || null,
+        yearsBack: s.yearsBack || 0,
+      }));
+      return new Chart(canvas, {
+        type: "bar",
+        data: { labels, datasets },
+          options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          animation: false,
+          onClick: barChartClick,
+          onHover: barChartHover,
+          interaction: { mode: "index", intersect: false },
+          plugins: {
+            legend: { position: "bottom", labels: { boxWidth: 12, font: { size: 11 } } },
+            tooltip: {
+              callbacks: {
+                label: (ctx) => `${ctx.dataset.label}: ${tickFn(ctx.parsed.y)}`,
+              },
+            },
+          },
+          scales: {
+            y: {
+              beginAtZero: true,
+              ticks: { callback: (v) => tickFn(v), font: { size: 10 } },
+              grid: { color: "#eef2f7" },
+            },
+            x: {
+              ticks: { maxRotation: 0, minRotation: 0, autoSkip: false, font: { size: 10 } },
+              grid: { display: false },
+            },
+          },
+        },
+      });
+    }
+    function yoySeriesList(bundle, currentLabel) {
+      // 左→右: 前前前年 / 前々年 / 前年 / 当期
+      const keys = bundle.keys || [];
+      const list = [];
+      const add = (label, data, color, alpha, yearsBack) => {
+        list.push({
+          label,
+          data,
+          color,
+          alpha,
+          yearsBack,
+          monthKeys: keys.map((k) => shiftYearKey(k, yearsBack)),
+        });
+      };
+      if (showPrev3Year) add("前前前年同月", bundle.previous3, CHART_COLORS.previous3, "e6", 3);
+      if (showPrev2Year) add("前々年同月", bundle.previous2, CHART_COLORS.previous2, "e6", 2);
+      if (showPrevYear) add("前年同月", bundle.previous, CHART_COLORS.previous, "e6", 1);
+      add(currentLabel, bundle.current, CHART_COLORS.current, "cc", 0);
+      return list;
+    }
+    function yoyCapText() {
+      const parts = [];
+      if (showPrev3Year) parts.push("紫=前前前年");
+      if (showPrev2Year) parts.push("ピンク=前々年");
+      if (showPrevYear) parts.push("オレンジ=前年");
+      parts.push("青=当期");
+      return parts.join(" / ");
+    }
+    function renderCharts(clinic) {
+      destroyClinicCharts(clinic);
+      const info = DATA.clinics[clinic] || {};
+      const hidePatientUnitCharts = !!info.hidePatientUnitCharts;
+      const bag = {};
+      const sales = buildFiscalCompareSeries(clinic, "sales", activeKey);
+      bag.salesYoy = makeCompareBarChart(
+        document.getElementById(`chart-sales-yoy-${clinic}`),
+        sales.labels,
+        yoySeriesList(sales, "当期売上"),
+        yenTick
+      );
+      const patientsCanvas = document.getElementById(`chart-patients-yoy-${clinic}`);
+      if (patientsCanvas && !hidePatientUnitCharts) {
+        const patients = buildFiscalCompareSeries(clinic, "patients", activeKey);
+        bag.patientsYoy = makeCompareBarChart(
+          patientsCanvas,
+          patients.labels,
+          yoySeriesList(patients, "当期患者数"),
+          (v) => Math.round(v).toLocaleString("ja-JP") + "人"
+        );
+      }
+      const unitCanvas = document.getElementById(`chart-unit-yoy-${clinic}`);
+      if (unitCanvas && !hidePatientUnitCharts) {
+        const units = buildFiscalCompareSeries(clinic, "unitPrice", activeKey);
+        bag.unitYoy = makeCompareBarChart(
+          unitCanvas,
+          units.labels,
+          yoySeriesList(units, "当期一人あたり単価"),
+          yenTick
+        );
+      }
+      const insuranceCanvas = document.getElementById(`chart-insurance-yoy-${clinic}`);
+      if (insuranceCanvas) {
+        const insurance = buildFiscalCompareSeries(clinic, "insuranceSales", activeKey);
+        bag.insuranceYoy = makeCompareBarChart(
+          insuranceCanvas,
+          insurance.labels,
+          yoySeriesList(insurance, info.insuranceSeriesLabel || "当期保険診療"),
+          yenTick
+        );
+      }
+      const selfPay = buildSelfPayStack(clinic, activeKey);
+      const selfPayCanvas = document.getElementById(`chart-selfpay-${clinic}`);
+      if (selfPayCanvas && selfPay.datasets.length) {
+        bag.selfPay = makeStackedBarChart(selfPayCanvas, selfPay.labels, selfPay.datasets, yenTick);
+      }
+      // update captions for active panel
+      const panel = document.getElementById("panel-" + clinic);
+      if (panel) {
+        panel.querySelectorAll(".cap-yoy").forEach((el) => {
+          el.textContent = `${sales.periodLabel} ／ ${yoyCapText()}`;
+        });
+      }
+      const selfCap = document.getElementById(`cap-selfpay-${clinic}`);
+      if (selfCap && selfCap.dataset.base) {
+        selfCap.textContent = `${selfPay.periodLabel} ／ ${selfCap.dataset.base}`;
+      }
+      chartRegistry[clinic] = bag;
+    }
+    function subMetric(lbl, val, tone) {
+      return `<div class="kpi-sub"><span class="kpi-sub-lbl">${lbl}</span><span class="kpi-sub-val ${tone}">${val === "" ? "—" : val}</span></div>`;
+    }
+    function renderKpis(clinic, key) {
+      const cur = monthByKey(clinic, key);
+      const prevKey = prevYearKey(key);
+      const prev = monthByKey(clinic, prevKey);
+      const accent = COLORS[clinic] || "total";
+      const info = DATA.clinics[clinic];
+      const patientUnit = "人";
+      const simple = !!info.simpleMode;
+      const hidePatientUnit = !!info.hidePatientUnit;
+
+      const sales = cur?.sales ?? null;
+      const salesPrev = prev?.sales ?? null;
+      const salesDiff = sales != null && salesPrev != null ? sales - salesPrev : null;
+      const assessment = cur?.assessment ?? null;
+      const showAssessment = clinic === "みんなの血管外科池袋";
+      const days = cur?.days ?? null;
+      const daysLabel = days != null ? `日数 ${Math.round(days)}日` : "";
+
+      const patients = cur?.patients ?? null;
+      const patientsPrev = prev?.patients ?? null;
+      const patientsDiff = patients != null && patientsPrev != null ? patients - patientsPrev : null;
+      const dailyPatients = cur?.dailyPatients ?? null;
+
+      const unitPrice = cur?.unitPrice ?? null;
+      const unitPricePrev = prev?.unitPrice ?? null;
+      const unitPriceDiff = unitPrice != null && unitPricePrev != null ? unitPrice - unitPricePrev : null;
+
+      let html = `
+        <div class="kpi-card accent-${accent}">
+          <div class="kpi-title"><span>${info.salesTitle || "月次売上（保険＋自費）"}</span><span class="kpi-days">${daysLabel}</span></div>
+          <div class="kpi-value">${yen(sales) || "—"}</div>
+          ${showAssessment ? `<div class="kpi-subline ${toneDiff(assessment)}">査定増減 ${diffYen(assessment) || "—"}</div>` : ""}
+          <div class="kpi-compare">
+            ${subMetric("前年売上", yen(salesPrev), toneValue(salesPrev))}
+            ${subMetric("前年対比", diffYen(salesDiff), toneDiff(salesDiff))}
+          </div>
+        </div>`;
+      if (!hidePatientUnit) {
+        html += `
+        <div class="kpi-card accent-${accent}">
+          <div class="kpi-title"><span>患者数（${info.patientLabel}）</span></div>
+          <div class="kpi-value">${count(patients, patientUnit) || "—"}</div>
+          <div class="kpi-subline">${dailyPatients != null ? `${count(dailyPatients, "人/日")}` : ""}</div>
+          <div class="kpi-compare">
+            ${subMetric("前年患者数", count(patientsPrev, patientUnit), toneValue(patientsPrev))}
+            ${subMetric("前年対比", diffCount(patientsDiff, patientUnit), toneDiff(patientsDiff))}
+          </div>
+        </div>
+        <div class="kpi-card accent-${accent}">
+          <div class="kpi-title"><span>一人あたり単価（${info.unitPriceLabel}）</span></div>
+          <div class="kpi-value">${yen(unitPrice) || "—"}</div>
+          <div class="kpi-compare">
+            ${subMetric("前年一人あたり単価", yen(unitPricePrev), toneValue(unitPricePrev))}
+            ${subMetric("前年対比", diffYen(unitPriceDiff), toneDiff(unitPriceDiff))}
+          </div>
+        </div>`;
+      }
+      return html;
+    }
+    function renderPanel(clinic) {
+      const info = DATA.clinics[clinic] || {};
+      const simple = !!info.simpleMode;
+      const hidePatientUnit = !!info.hidePatientUnit;
+      const hidePatientUnitCharts = !!info.hidePatientUnitCharts;
+      const hideShortfall = !!info.hideShortfall;
+      let chartNum = 1;
+      const nextNum = () => "①②③④⑤⑥⑦⑧⑨⑩"[chartNum++ - 1] || String(chartNum - 1);
+      const charts = [
+        `<div class="chart-card">
+            <h2>${nextNum()} 月次売上高の推移</h2>
+            <p class="cap cap-yoy">会計年度1年分</p>
+            <div class="chart-box"><canvas id="chart-sales-yoy-${clinic}"></canvas></div>
+          </div>`,
+      ];
+      if (!hidePatientUnitCharts) {
+        charts.push(`<div class="chart-card">
+            <h2>${nextNum()} 患者数の推移</h2>
+            <p class="cap cap-yoy">会計年度1年分</p>
+            <div class="chart-box"><canvas id="chart-patients-yoy-${clinic}"></canvas></div>
+          </div>`);
+        charts.push(`<div class="chart-card">
+            <h2>${nextNum()} 一人あたり単価の推移</h2>
+            <p class="cap cap-yoy">会計年度1年分</p>
+            <div class="chart-box"><canvas id="chart-unit-yoy-${clinic}"></canvas></div>
+          </div>`);
+      }
+      charts.push(`<div class="chart-card full">
+            <h2>${nextNum()} ${info.insuranceChartTitle || "保険診療売上"}の推移</h2>
+            <p class="cap cap-yoy">会計年度1年分</p>
+            <div class="chart-box"><canvas id="chart-insurance-yoy-${clinic}"></canvas></div>
+          </div>`);
+      let selfPayTitleBase = "自費金額の内訳";
+      let selfPayCapBase = "月ごとの自費内訳（シルガード・健診・インフルエンザ等）";
+      if (simple) {
+        selfPayTitleBase = "自費金額";
+        selfPayCapBase = "月ごとの自費金額合計";
+      } else if (clinic === "みんなの血管外科池袋") {
+        selfPayTitleBase = "OPE以外の売上";
+        selfPayCapBase = "月ごとのOPE以外の売上";
+      }
+      charts.push(`<div class="chart-card full">
+            <h2>${nextNum()} ${selfPayTitleBase}の推移</h2>
+            <p class="cap" id="cap-selfpay-${clinic}" data-base="${selfPayCapBase}">${selfPayCapBase}</p>
+            <div class="chart-box"><canvas id="chart-selfpay-${clinic}"></canvas></div>
+          </div>`);
+      const kpiClass = simple ? " kpi-simple" : (hidePatientUnit && hideShortfall ? " kpi-compact" : "");
+      return `
+        <div class="toolbar">
+          <label>対象月
+            <select id="month-select-${clinic}"></select>
+          </label>
+          <div class="compare-toggles">
+            <span class="toggle-title">グラフ比較</span>
+            <span class="compare-opt"><span class="swatch cur"></span>当期</span>
+            <label class="compare-opt"><input type="checkbox" class="chk-prev" ${showPrevYear ? "checked" : ""}> <span class="swatch prev"></span>前年</label>
+            <label class="compare-opt"><input type="checkbox" class="chk-prev2" ${showPrev2Year ? "checked" : ""}> <span class="swatch prev2"></span>前々年</label>
+            <label class="compare-opt"><input type="checkbox" class="chk-prev3" ${showPrev3Year ? "checked" : ""}> <span class="swatch prev3"></span>前前前年</label>
+          </div>
+          <div class="fiscal-summary" id="fiscal-${clinic}">${renderFiscalSummary(clinic, activeKey)}</div>
+        </div>
+        <div class="kpi-grid${kpiClass}" id="kpi-${clinic}">${renderKpis(clinic, activeKey)}</div>
+        <div class="charts-grid">
+          ${charts.join("\n")}
+        </div>`;
+    }
+    function syncCompareToggles(panel) {
+      if (!panel) return;
+      const prev = panel.querySelector(".chk-prev");
+      const prev2 = panel.querySelector(".chk-prev2");
+      const prev3 = panel.querySelector(".chk-prev3");
+      if (prev) prev.checked = showPrevYear;
+      if (prev2) prev2.checked = showPrev2Year;
+      if (prev3) prev3.checked = showPrev3Year;
+    }
+    function keyFor(clinic) {
+      const months = (DATA.clinics[clinic] && DATA.clinics[clinic].months) || [];
+      if (months.some((m) => m.key === activeKey)) return activeKey;
+      return months.length ? months[months.length - 1].key : activeKey;
+    }
+    function refresh(opts) {
+      opts = opts || {};
+      const key = keyFor(activeClinic);
+      document.getElementById("kpi-" + activeClinic).innerHTML = renderKpis(activeClinic, key);
+      const fiscalEl = document.getElementById("fiscal-" + activeClinic);
+      if (fiscalEl) fiscalEl.innerHTML = renderFiscalSummary(activeClinic, key);
+      const panel = document.getElementById("panel-" + activeClinic);
+      syncCompareToggles(panel);
+      if (!opts.keepCharts) renderCharts(activeClinic);
+    }
+    function setClinic(id) {
+      activeClinic = id;
+      document.querySelectorAll(".tab").forEach((b) => b.classList.toggle("active", b.dataset.clinic === id));
+      document.querySelectorAll(".panel").forEach((p) => p.classList.toggle("active", p.id === "panel-" + id));
+      const sel = document.getElementById("month-select-" + id);
+      if (sel && !sel.options.length) fillMonthSelect(sel, id);
+      if (sel) sel.value = String(keyFor(id));
+      refresh();
+    }
+    function init() {
+      const tabsEl = document.getElementById("tabs");
+      const panelsEl = document.getElementById("panels");
+      DATA.clinicOrder.forEach((name, i) => {
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "tab" + (i === 0 ? " active" : "");
+        btn.dataset.clinic = name;
+        btn.textContent = name;
+        btn.addEventListener("click", () => setClinic(name));
+        tabsEl.appendChild(btn);
+
+        const panel = document.createElement("div");
+        panel.id = "panel-" + name;
+        panel.className = "panel" + (i === 0 ? " active" : "");
+        panel.innerHTML = renderPanel(name);
+        panelsEl.appendChild(panel);
+
+        const sel = panel.querySelector("select");
+        const months = DATA.clinics[name].months || [];
+        fillMonthSelect(sel, name);
+        sel.value = months.length ? months[months.length - 1].key : "";
+        sel.addEventListener("change", () => {
+          const next = Number(sel.value);
+          const keep = fiscalYearOf(next, activeClinic) === fiscalYearOf(activeKey, activeClinic);
+          activeKey = next;
+          refresh({ keepCharts: keep });
+        });
+        const prevChk = panel.querySelector(".chk-prev");
+        const prev2Chk = panel.querySelector(".chk-prev2");
+        const prev3Chk = panel.querySelector(".chk-prev3");
+        if (prevChk) {
+          prevChk.addEventListener("change", () => {
+            showPrevYear = prevChk.checked;
+            document.querySelectorAll(".chk-prev").forEach((el) => { el.checked = showPrevYear; });
+            renderCharts(activeClinic);
+          });
+        }
+        if (prev2Chk) {
+          prev2Chk.addEventListener("change", () => {
+            showPrev2Year = prev2Chk.checked;
+            document.querySelectorAll(".chk-prev2").forEach((el) => { el.checked = showPrev2Year; });
+            renderCharts(activeClinic);
+          });
+        }
+        if (prev3Chk) {
+          prev3Chk.addEventListener("change", () => {
+            showPrev3Year = prev3Chk.checked;
+            document.querySelectorAll(".chk-prev3").forEach((el) => { el.checked = showPrev3Year; });
+            renderCharts(activeClinic);
+          });
+        }
+      });
+      activeKey = Number(document.querySelector(".panel.active select").value);
+      renderCharts(activeClinic);
+      const tabsElSticky = document.getElementById("tabs");
+      const syncStickyTabsHeight = () => {
+        if (!tabsElSticky) return;
+        document.documentElement.style.setProperty("--tabs-h", tabsElSticky.offsetHeight + "px");
+      };
+      syncStickyTabsHeight();
+      if (window.ResizeObserver) {
+        new ResizeObserver(syncStickyTabsHeight).observe(tabsElSticky);
+      } else {
+        window.addEventListener("resize", syncStickyTabsHeight);
+      }
+    }
+    init();
+  </script>
+</body>
+</html>
